@@ -2,6 +2,7 @@ package com.example.voicecompanion.ui.overlay
 
 import com.example.voicecompanion.ui.MainActivity
 import com.example.voicecompanion.characterpack.model.CharacterPack
+import com.example.voicecompanion.characterpack.model.CharacterOverlaySpec
 import com.example.voicecompanion.characterpack.ui.CharacterSurfaceView
 import com.example.voicecompanion.characterpack.ui.SpriteCharacterView
 
@@ -11,6 +12,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
 import android.graphics.Point
 import android.graphics.Rect
@@ -24,14 +26,16 @@ import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.ImageView
 
 /** WindowManager 위에 정차 중 캐릭터만 올리는 Android 경계다. 캐릭터는 끌어서 옮길 수 있고, 놓은 위치는 prefs에 남는다. */
 internal class CharacterOverlayHost(private val context: Context, private val prefs: SharedPreferences) {
     private val windowManager = context.getSystemService(WindowManager::class.java)
-    private val sizePx = (280 * context.resources.displayMetrics.density).toInt()
-    private val params = layoutParams()
+    private val density = context.resources.displayMetrics.density
+    private val params = layoutParams(sizeFor(CharacterOverlaySpec.DEFAULT))
     private var root: FrameLayout? = null
     private var characterView: View? = null
+    private var overlaySize: OverlaySize? = null
     private var attached = false
 
     val permissionGranted: Boolean
@@ -39,25 +43,40 @@ internal class CharacterOverlayHost(private val context: Context, private val pr
 
     fun show(pack: CharacterPack, animation: String): OverlayShowResult {
         if (!permissionGranted) return OverlayShowResult.PERMISSION_REQUIRED
+        val requestedSize = sizeFor(pack.overlay)
         // GLB SurfaceView와 2D View는 창 수명 모델이 다르다. 다른 표현으로 바뀌면 창을 새로 만들어
         // 이전 Filament Surface와 스프라이트 재생 콜백을 함께 정리한다.
-        if (root != null && !supports(pack)) hide()
+        if (root != null && (!supports(pack) || overlaySize != requestedSize)) hide()
 
         val overlay = root ?: FrameLayout(context).also { frame ->
             val view = createCharacterView(pack) ?: return OverlayShowResult.REJECTED
+            pack.previewPng?.let { png ->
+                BitmapFactory.decodeByteArray(png, 0, png.size)?.let { bitmap ->
+                    val inset = minOf(requestedSize.width, requestedSize.height) / 20
+                    frame.addView(ImageView(context).apply {
+                        setImageBitmap(bitmap)
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        setPadding(inset, inset, inset, inset)
+                        contentDescription = "${pack.name} 캐릭터 프리뷰"
+                    }, FrameLayout.LayoutParams(requestedSize.width, requestedSize.height))
+                }
+            }
             view.contentDescription = "VR 캐릭터 설정 열기"
             view.setOnTouchListener(dragListener())
-            frame.addView(view, FrameLayout.LayoutParams(sizePx, sizePx))
+            frame.addView(view, FrameLayout.LayoutParams(requestedSize.width, requestedSize.height))
             characterView = view
+            overlaySize = requestedSize
             root = frame
         }
         if (!attached) {
             // 저장한 위치가 없으면 영역 가운데. 화면 크기가 달라졌어도 창이 영역 밖에서 시작하지 않게 안쪽으로 맞춘다.
             val area = usableArea()
-            params.x = prefs.getInt(PREF_X, (area.left + area.right - sizePx) / 2)
-                .coerceIn(area.left, maxOf(area.left, area.right - sizePx))
-            params.y = prefs.getInt(PREF_Y, (area.top + area.bottom - sizePx) / 2)
-                .coerceIn(area.top, maxOf(area.top, area.bottom - sizePx))
+            params.width = requestedSize.width
+            params.height = requestedSize.height
+            params.x = prefs.getInt(PREF_X, (area.left + area.right - requestedSize.width) / 2)
+                .coerceIn(area.left, maxOf(area.left, area.right - requestedSize.width))
+            params.y = prefs.getInt(PREF_Y, (area.top + area.bottom - requestedSize.height) / 2)
+                .coerceIn(area.top, maxOf(area.top, area.bottom - requestedSize.height))
             try {
                 windowManager.addView(overlay, params)
                 attached = true
@@ -101,6 +120,7 @@ internal class CharacterOverlayHost(private val context: Context, private val pr
             // ModelViewer는 창에서 떨어질 때 엔진까지 해제한다. 같은 뷰를 다시 붙이면 캐릭터 없는 검은 사각형이 되니(기기에서 확인) 버리고 show마다 새로 만든다.
             root = null
             characterView = null
+            overlaySize = null
         }
     }
 
@@ -152,7 +172,8 @@ internal class CharacterOverlayHost(private val context: Context, private val pr
         return View.OnTouchListener { view, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> usableArea().let { a ->
-                    drag.down(e.rawX, e.rawY, params.x, params.y, a.left, a.right - sizePx, a.top, a.bottom - sizePx)
+                    val size = checkNotNull(overlaySize)
+                    drag.down(e.rawX, e.rawY, params.x, params.y, a.left, a.right - size.width, a.top, a.bottom - size.height)
                 }
                 MotionEvent.ACTION_MOVE -> drag.move(e.rawX, e.rawY)?.let { (x, y) ->
                     params.x = x
@@ -170,9 +191,14 @@ internal class CharacterOverlayHost(private val context: Context, private val pr
         prefs.edit().putInt(PREF_X, params.x).putInt(PREF_Y, params.y).apply()
     }
 
-    private fun layoutParams() = WindowManager.LayoutParams(
-        sizePx,
-        sizePx,
+    private fun sizeFor(spec: CharacterOverlaySpec) = OverlaySize(
+        (spec.widthDp * density).toInt(),
+        (spec.heightDp * density).toInt(),
+    )
+
+    private fun layoutParams(size: OverlaySize) = WindowManager.LayoutParams(
+        size.width,
+        size.height,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -182,6 +208,8 @@ internal class CharacterOverlayHost(private val context: Context, private val pr
         gravity = Gravity.TOP or Gravity.START
         title = "VoiceCompanionCharacterOverlay"
     }
+
+    private data class OverlaySize(val width: Int, val height: Int)
 
     private companion object {
         const val PREF_X = "characterpack.vr.x"
