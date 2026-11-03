@@ -66,7 +66,12 @@ test('each candidate has all 13 canonical, non-empty draft dialogue slots', () =
     assert.ok(REVIEW_STATES.has(row.reviewStatus), `unknown reviewStatus ${row.reviewStatus}`);
   }
 
-  const byCharacter = Map.groupBy(matrix, (row) => row.characterId);
+  const byCharacter = new Map();
+  for (const row of matrix) {
+    const rows = byCharacter.get(row.characterId) ?? [];
+    rows.push(row);
+    byCharacter.set(row.characterId, rows);
+  }
   for (const [characterId, rows] of byCharacter) {
     assert.equal(rows.length, CANONICAL_EVENTS.length, `${characterId} must have exactly 13 rows`);
     assert.deepEqual(rows.map((row) => row.eventId).sort(), [...CANONICAL_EVENTS].sort(), `${characterId} must cover each event once`);
