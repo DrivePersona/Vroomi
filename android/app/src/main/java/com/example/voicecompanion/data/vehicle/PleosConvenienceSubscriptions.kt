@@ -393,4 +393,3 @@ internal class PleosConvenienceSubscriptions(
 
     private val AccessType.canRead: Boolean get() = this == AccessType.READ || this == AccessType.READ_WRITE
 }
-
