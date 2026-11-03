@@ -34,7 +34,7 @@ enum class VehicleEvent(
 enum class DropReason { COOLDOWN, PRIORITY, FOCUS, DRIVING_SILENT, POLICY_SILENT }
 
 /** 차량 이벤트가 어떤 종류의 음성 경로를 사용할 수 있는지 고정한 정책 테이블. */
-enum class SpeechOutput { CHARACTER_CLIP, SYSTEM_TTS, SILENCE }
+enum class SpeechOutput { CHARACTER_CLIP, NEUTRAL_CLIP, SYSTEM_TTS, SILENCE }
 
 enum class SpeechContent { PREDEFINED_EVENT, EXACT_VALUE, DIAGNOSTIC, UNSUPPORTED }
 
@@ -44,7 +44,7 @@ object VehicleSpeechPolicy {
         VehicleEvent.TURN to SpeechOutput.CHARACTER_CLIP,
         VehicleEvent.MODE to SpeechOutput.CHARACTER_CLIP,
         VehicleEvent.TIRE to SpeechOutput.CHARACTER_CLIP,
-        VehicleEvent.WARNING to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.WARNING to SpeechOutput.NEUTRAL_CLIP,
         VehicleEvent.LIGHT to SpeechOutput.CHARACTER_CLIP,
         VehicleEvent.WINDOW to SpeechOutput.CHARACTER_CLIP,
         VehicleEvent.DOOR to SpeechOutput.CHARACTER_CLIP,
@@ -52,11 +52,11 @@ object VehicleSpeechPolicy {
         VehicleEvent.ENERGY_SUFFICIENT to SpeechOutput.CHARACTER_CLIP,
         VehicleEvent.ENERGY_COMFORTABLE to SpeechOutput.CHARACTER_CLIP,
         VehicleEvent.ENERGY_ATTENTION to SpeechOutput.CHARACTER_CLIP,
-        VehicleEvent.ENERGY_URGENT to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.ENERGY_URGENT to SpeechOutput.NEUTRAL_CLIP,
         VehicleEvent.CHARGE_PORT to SpeechOutput.CHARACTER_CLIP,
     )
 
-    /** 미리 정한 차량 이벤트는 클립 팩을 우선 사용하고, 기존 엔진 규칙에 따라 기본 TTS가 대체할 수 있다. */
+    /** 일반 이벤트는 캐릭터 클립을 우선 사용한다. 안전 이벤트는 중립 문구의 팩 클립을 우선한다. */
     fun outputFor(event: VehicleEvent): SpeechOutput = eventOutputs.getValue(event)
 
     /** 실시간 수치·진단·지원하지 않는 콘텐츠는 사용자 요청형 TTS 기능이 생기기 전까지 말하지 않는다. */
@@ -68,8 +68,18 @@ object VehicleSpeechPolicy {
     val characterClipEventIds: Set<String>
         get() = eventOutputs.filterValues { it == SpeechOutput.CHARACTER_CLIP }.keys.map { it.name }.toSet()
 
+    /** 안전 문구도 WAV로 제공할 수 있지만 캐릭터 gesture는 허용하지 않는다. */
+    val neutralClipEventIds: Set<String>
+        get() = eventOutputs.filterValues { it == SpeechOutput.NEUTRAL_CLIP }.keys.map { it.name }.toSet()
+
+    val voicePackClipEventIds: Set<String>
+        get() = characterClipEventIds + neutralClipEventIds
+
+    val characterGestureEventIds: Set<String>
+        get() = characterClipEventIds
+
     val safetyEvents: Set<VehicleEvent>
-        get() = eventOutputs.filterValues { it == SpeechOutput.SYSTEM_TTS }.keys
+        get() = eventOutputs.filterValues { it == SpeechOutput.NEUTRAL_CLIP }.keys
 }
 
 val VehicleEvent.isEnergyEvent: Boolean
