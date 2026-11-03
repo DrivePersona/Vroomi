@@ -7,6 +7,7 @@ import com.example.voicecompanion.characterpack.model.CharacterPack
 import com.example.voicecompanion.characterpack.model.CharacterPackInfo
 import com.example.voicecompanion.characterpack.model.CharacterPackState
 import com.example.voicecompanion.characterpack.model.CharacterProvenance
+import com.example.voicecompanion.characterpack.model.SupportedGesture
 import com.example.voicecompanion.voicepack.domain.PackGreeting
 import com.example.voicecompanion.voicepack.domain.PackInfo
 import com.example.voicecompanion.voicepack.domain.PackKind
@@ -67,6 +68,10 @@ class ReleaseRosterTest {
 
         val vrEntry = entry.copy(releaseTier = "vr", vrEligible = true, requiredGestureEventIds = setOf("BRAKE"))
         assertTrue(ReleaseRoster.eligibilityFailures(vrEntry, character(), voicePack()).contains("required VR gesture is missing: BRAKE"))
+
+        val mappedToUnsupportedGesture = character(gestures = mapOf("BRAKE" to "jump"), supportedGestureIds = emptySet())
+        assertTrue(ReleaseRoster.eligibilityFailures(vrEntry, mappedToUnsupportedGesture, voicePack())
+            .any { it.contains("not supported by the character manifest") })
     }
 
     @Test
@@ -103,12 +108,24 @@ class ReleaseRosterTest {
         assertTrue(CharacterDialogueMatrix.rows("other.voice", pack).isEmpty())
     }
 
+    @Test
+    fun `release roster rejects a required event with no indexed clip`() {
+        val invalidCount = voicePack(variantCounts = mapOf("BRAKE" to 0))
+        assertTrue(ReleaseRoster.eligibilityFailures(entry, character(), invalidCount)
+            .contains("required voice clip has no indexed variant: BRAKE"))
+    }
+
     private fun character(
         voicePackId: String? = entry.voicePackId,
         commercialUse: Boolean = true,
         gestures: Map<String, String> = emptyMap(),
+        supportedGestureIds: Set<String> = gestures.values.toSet(),
     ) = object : CharacterPack {
-        private val characterAnimations = CharacterAnimations("idle", gestures)
+        private val characterAnimations = CharacterAnimations(
+            "idle",
+            gestures,
+            gestures.values.filter { it in supportedGestureIds }.associateWith { SupportedGesture(it, 500, oneShot = true) },
+        )
         override val id = entry.characterId
         override val name = "Character"
         override val state: CharacterPackState = CharacterPackState.Ready
@@ -130,6 +147,7 @@ class ReleaseRosterTest {
         consent: Boolean = true,
         packId: String = entry.voicePackId,
         packState: PackState = PackState.Ready,
+        variantCounts: Map<String, Int> = emptyMap(),
     ) = object : VoicePack {
         override val id = packId
         override val name = "Voice"
@@ -148,7 +166,7 @@ class ReleaseRosterTest {
         override fun greeting() = PackGreeting("__GREETING", "안녕하세요.")
         override fun variantCount(eventId: String) = when {
             eventId == "__GREETING" -> 1
-            eventId in availableEvents -> 1
+            eventId in availableEvents -> variantCounts[eventId] ?: 1
             else -> 0
         }
         override fun lineFor(eventId: String, variantIndex: Int): String? =

@@ -79,10 +79,17 @@ data class ReleaseRoster(val entries: List<ReleaseRosterEntry>) {
                     if (!info.provenance.commercialUse) add("character commercial use is not approved")
                 }
                 if (entry.vrEligible) {
-                    val reactions = character.animations?.reactions.orEmpty()
+                    val animations = character.animations
+                    val reactions = animations?.reactions.orEmpty()
                     if (entry.requiredGestureEventIds.isEmpty()) add("VR entry must declare required gestures")
                     entry.requiredGestureEventIds.filterNot { it in reactions }.forEach {
                         add("required VR gesture is missing: $it")
+                    }
+                    entry.requiredGestureEventIds.forEach { eventId ->
+                        val gestureId = reactions[eventId] ?: return@forEach
+                        if (gestureId !in animations?.supportedGestures.orEmpty()) {
+                            add("required VR gesture is not supported by the character manifest: $eventId -> $gestureId")
+                        }
                     }
                 }
             }
@@ -99,9 +106,13 @@ data class ReleaseRoster(val entries: List<ReleaseRosterEntry>) {
                     if (!info.provenance.consent) add("voice consent is not approved")
                     if (!info.provenance.commercialUse) add("voice commercial use is not approved")
                 }
-                if (voicePack.greeting() == null) add("greeting clip is missing")
-                REQUIRED_VOICE_EVENT_IDS.filterNot(voicePack::canSpeak).forEach {
-                    add("required voice clip is missing: $it")
+                if (voicePack.greeting() == null || voicePack.variantCount("__GREETING") < 1) add("greeting clip is missing")
+                REQUIRED_VOICE_EVENT_IDS.forEach { eventId ->
+                    if (!voicePack.canSpeak(eventId)) {
+                        add("required voice clip is missing: $eventId")
+                    } else if (voicePack.variantCount(eventId) < 1) {
+                        add("required voice clip has no indexed variant: $eventId")
+                    }
                 }
             }
         }

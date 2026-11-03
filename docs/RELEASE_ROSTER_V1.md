@@ -4,9 +4,11 @@
 
 ## Eligibility checked by the app
 
-Each roster entry must match a loaded character and voice pack by stable ID. The character must be READY, renderable, commercially approved, and declare the same `voicePackId`. The voice pack must be a READY clip pack with approved consent and commercial use, a greeting, and all 12 canonical vehicle clips. The greeting plus those 12 slots make the v1 13-clip matrix. A VR eligible entry must use the `vr` release tier and list the gestures that the character manifest must provide.
+Each roster entry must match a loaded character and voice pack by stable ID. The character must be READY, renderable, commercially approved, and declare the same `voicePackId`. The voice pack must be a READY clip pack with approved consent and commercial use, an indexed greeting clip, and at least one indexed variant for each of the 12 canonical vehicle clips. The greeting plus those 12 slots make the v1 13-slot matrix. A VR eligible entry must use the `vr` release tier and list event IDs whose mapped gesture IDs are present in the character manifest's supported gestures.
 
 Entries that fail a runtime check are excluded from the picker and cannot be selected. Malformed or missing roster data fails closed to an empty list.
+
+The app's `:app:testInternalDebugUnitTest` suite exercises missing packs/IDs, incomplete dialogue slots, unsupported VR gesture mappings, and the ID-only character binding. The voice-pack SDK repository tests file hashes, declared sizes, WAV parsing/duration, and clip playback; the character-pack SDK tests validate GLB structure and declared animation contracts. Internal Android CI runs the app suite after protected branch pushes when private packages are enabled. Public pull-request CI cannot download the private SDK AARs, so its web-simulator job does not execute these Kotlin release-gate tests.
 
 ## Roster changes
 
