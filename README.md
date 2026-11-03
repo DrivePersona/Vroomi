@@ -35,9 +35,9 @@ gpr.user=YOUR_GITHUB_USERNAME
 gpr.key=YOUR_CLASSIC_PAT_WITH_READ_PACKAGES
 ```
 
-The package versions are fixed in `android/gradle.properties`; they are updated through a reviewable pull request after a private pack release. To enable that PR, store the same `DRIVEPERSONA_SYNC_TOKEN` fine-grained token in this repository and in both private SDK repositories. Restrict it to this public repository with `Contents: write` and `Pull requests: write`.
+Package releases dispatch `voicepack-published` or `characterpack-published` with a version, or `packs-published` with both package versions. The protected `internal-build` workflow resolves private AARs, runs roster/unit validation, assembles the internal release APK, records supplied content metadata in `docs/PACK_RELEASES.md`, and only then opens or refreshes a reviewable PR. Applied versions are a no-op. It never auto-merges. Keep `DRIVEPERSONA_PACKAGES_USER`, `DRIVEPERSONA_PACKAGES_TOKEN`, and the fine-grained `DRIVEPERSONA_SYNC_TOKEN` in the protected environment; the sync token needs `Contents: write` and `Pull requests: write` for this repository. The private SDK publish workflows use the same sync token only to send the dispatch.
 
-The `internal-android` CI job is deliberately disabled until an organization owner adds the package credentials to the protected `internal-build` environment and sets its `INTERNAL_PACKAGES_ENABLED` variable to `true`. Public pull-request CI never receives these credentials.
+The protected `internal-android` CI job runs only after main receives a reviewed change and `INTERNAL_PACKAGES_ENABLED` is true. Public pull-request CI never receives package credentials.
 
 ## Asset policy
 

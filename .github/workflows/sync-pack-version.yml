@@ -1,54 +1,176 @@
-name: Open pack version update
+name: Validate and open pack compatibility PR
 
 on:
   repository_dispatch:
-    types: [voicepack-published, characterpack-published]
+    types: [voicepack-published, characterpack-published, packs-published]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  open-version-pr:
+  compatibility-pr:
     runs-on: ubuntu-latest
+    environment: internal-build
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - name: Validate event payload
-        id: payload
+        with:
+          ref: main
+          token: ${{ secrets.DRIVEPERSONA_SYNC_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Plan package version update
+        id: plan
         env:
-          EVENT_TYPE: ${{ github.event.action }}
-          VERSION: ${{ github.event.client_payload.version }}
+          RELEASE_ACTION: ${{ github.event.action }}
+          RELEASE_PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          PLAN_ONLY: 'true'
+        run: node tools/pack-release.js
+
+      - name: Skip already applied release
+        if: steps.plan.outputs.changed != 'true'
+        run: echo "Both requested package versions are already applied; no PR is needed." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check protected credentials
+        if: steps.plan.outputs.changed == 'true'
+        env:
+          PACKAGE_USER: ${{ secrets.DRIVEPERSONA_PACKAGES_USER }}
+          PACKAGE_TOKEN: ${{ secrets.DRIVEPERSONA_PACKAGES_TOKEN }}
+          SYNC_TOKEN: ${{ secrets.DRIVEPERSONA_SYNC_TOKEN }}
         shell: bash
         run: |
-          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
-          case "$EVENT_TYPE" in
-            voicepack-published) echo "property=drivepersona.voicepack.version" >> "$GITHUB_OUTPUT" ;;
-            characterpack-published) echo "property=drivepersona.characterpack.version" >> "$GITHUB_OUTPUT" ;;
-            *) exit 1 ;;
-          esac
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-      - name: Create a version update branch
+          missing=()
+          [[ -n "$PACKAGE_USER" ]] || missing+=("DRIVEPERSONA_PACKAGES_USER")
+          [[ -n "$PACKAGE_TOKEN" ]] || missing+=("DRIVEPERSONA_PACKAGES_TOKEN")
+          [[ -n "$SYNC_TOKEN" ]] || missing+=("DRIVEPERSONA_SYNC_TOKEN")
+          if (( ${#missing[@]} )); then
+            echo "PRIVATE_DEPENDENCY_ACCESS_FAILED: missing protected environment secrets: ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Private package access is not configured in internal-build."
+            exit 1
+          fi
+
+      - name: Prepare compatibility branch and changelog
+        if: steps.plan.outputs.changed == 'true'
+        id: branch
         env:
-          PROPERTY: ${{ steps.payload.outputs.property }}
-          VERSION: ${{ steps.payload.outputs.version }}
-          # A fine-grained token restricted to this repository is used instead
-          # of the default GITHUB_TOKEN. The organization intentionally blocks
-          # GitHub Actions from creating PRs with its default token.
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          VOICE_VERSION: ${{ steps.plan.outputs.voice_version }}
+          CHARACTER_VERSION: ${{ steps.plan.outputs.character_version }}
+          CHANGED_PACKAGES: ${{ steps.plan.outputs.changed_packages }}
+          RELEASE_METADATA: ${{ steps.plan.outputs.metadata }}
+          RELEASE_DATE: ${{ github.event.client_payload.publishedAt || github.event.head_commit.timestamp }}
+          RELEASE_ACTION: ${{ github.event.action }}
+          RELEASE_PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        shell: bash
+        run: |
+          git fetch origin main
+          git switch --detach origin/main
+          git switch -c "$BRANCH"
+          node tools/pack-release.js --apply
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const metadata = JSON.parse(process.env.RELEASE_METADATA || '{}');
+          const date = (process.env.RELEASE_DATE || new Date().toISOString()).slice(0, 10);
+          const packages = process.env.CHANGED_PACKAGES.split(',').filter(Boolean);
+          const versions = {
+            'voice-pack-sdk': process.env.VOICE_VERSION,
+            'character-pack-sdk': process.env.CHARACTER_VERSION,
+          };
+          const note = [
+            `\n## ${date} · ${packages.join(' + ')}`,
+            `- voice-pack-sdk: ${versions['voice-pack-sdk']}`,
+            `- character-pack-sdk: ${versions['character-pack-sdk']}`,
+            ...Object.entries(metadata).map(([key, value]) => `- ${key}: ${value}`),
+            '',
+          ].join('\n');
+          fs.mkdirSync('docs', { recursive: true });
+          fs.appendFileSync('docs/PACK_RELEASES.md', note);
+          NODE
+          git config user.name "drivepersona-release-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/gradle.properties docs/PACK_RELEASES.md
+          git commit -m "chore(packs): update compatibility versions"
+
+      - name: Resolve private release dependencies
+        if: steps.plan.outputs.changed == 'true'
+        working-directory: android
+        env:
+          GITHUB_ACTOR: ${{ secrets.DRIVEPERSONA_PACKAGES_USER }}
+          GITHUB_TOKEN: ${{ secrets.DRIVEPERSONA_PACKAGES_TOKEN }}
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          if ! ./gradlew :app:dependencies --configuration internalReleaseRuntimeClasspath --console=plain; then
+            echo "PRIVATE_DEPENDENCY_ACCESS_FAILED: Gradle could not resolve the requested private AAR versions." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "Private package dependency resolution succeeded." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run compatibility validation and assemble internal APK
+        if: steps.plan.outputs.changed == 'true'
+        working-directory: android
+        env:
+          GITHUB_ACTOR: ${{ secrets.DRIVEPERSONA_PACKAGES_USER }}
+          GITHUB_TOKEN: ${{ secrets.DRIVEPERSONA_PACKAGES_TOKEN }}
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          if ! ./gradlew :app:testInternalDebugUnitTest :app:assembleInternalRelease --console=plain; then
+            echo "COMPATIBILITY_VALIDATION_FAILED: release roster, voicePackId, assets, or internal APK validation failed." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "Roster/unit validation and internal APK assembly passed." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push branch and open or refresh compatibility PR
+        if: steps.plan.outputs.changed == 'true'
+        env:
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          VOICE_VERSION: ${{ steps.plan.outputs.voice_version }}
+          CHARACTER_VERSION: ${{ steps.plan.outputs.character_version }}
+          CHANGED_PACKAGES: ${{ steps.plan.outputs.changed_packages }}
+          RELEASE_METADATA: ${{ steps.plan.outputs.metadata }}
           GH_TOKEN: ${{ secrets.DRIVEPERSONA_SYNC_TOKEN }}
         shell: bash
         run: |
-          branch="automation/${PROPERTY##*.}-${VERSION}"
-          git config user.name "drivepersona-release-bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$branch"
-          sed -i "s/^${PROPERTY}=.*/${PROPERTY}=${VERSION}/" android/gradle.properties
-          if git diff --quiet -- android/gradle.properties; then
-            echo "${PROPERTY} is already ${VERSION}; no pull request is needed."
-            exit 0
+          remote_sha=$(git ls-remote --heads origin "$BRANCH" | cut -f1)
+          if [[ -n "$remote_sha" ]]; then
+            git push --force-with-lease="refs/heads/$BRANCH:$remote_sha" origin "HEAD:refs/heads/$BRANCH"
+          else
+            git push origin "HEAD:refs/heads/$BRANCH"
           fi
-          git add android/gradle.properties
-          git commit -m "chore(packs): update ${PROPERTY} to ${VERSION}"
-          git push origin "$branch"
-          gh pr create --base main --head "$branch" \
-            --title "chore(packs): update ${PROPERTY} to ${VERSION}" \
-            --body "Automated update after the private package CI published ${VERSION}. The protected internal Android workflow validates this change after merge."
+          title="chore(packs): validate ${CHANGED_PACKAGES} release"
+          body_file="$RUNNER_TEMP/pack-release-pr-body.md"
+          node - > "$body_file" <<'NODE'
+          const metadata = process.env.RELEASE_METADATA || '{}';
+          process.stdout.write([
+            'Automated, human-reviewable package compatibility update.',
+            '',
+            `- voice-pack-sdk: ${process.env.VOICE_VERSION}`,
+            `- character-pack-sdk: ${process.env.CHARACTER_VERSION}`,
+            `- Changed packages: ${process.env.CHANGED_PACKAGES}`,
+            '- Protected dependency resolution: passed',
+            '- Release roster/unit validation: passed',
+            '- Internal APK assembly: passed',
+            '',
+            `Content metadata: \`${metadata}\``,
+            '',
+            'This workflow does not merge the PR. See `docs/PACK_RELEASES.md` for the release changelog.',
+            '',
+          ].join('\n'));
+          NODE
+          existing=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json url --jq '.[0].url // empty')
+          if [[ -n "$existing" ]]; then
+            gh pr edit "$existing" --title "$title" --body-file "$body_file"
+            echo "Refreshed existing compatibility PR: $existing" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "$title" --body-file "$body_file"
+          fi
