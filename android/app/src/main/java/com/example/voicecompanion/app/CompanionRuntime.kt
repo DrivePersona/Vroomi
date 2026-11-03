@@ -19,6 +19,7 @@ import com.example.voicecompanion.domain.model.SpeechOutput
 import com.example.voicecompanion.domain.model.isEnergyEvent
 import com.example.voicecompanion.app.model.CompanionUiState
 import com.example.voicecompanion.app.model.ReactionLogItem
+import com.example.voicecompanion.app.release.ReleaseRoster
 import com.example.voicecompanion.ui.overlay.CharacterOverlayHost
 import com.example.voicecompanion.ui.overlay.OverlayShowResult
 import com.example.voicecompanion.ui.overlay.VrOverlayInput
@@ -112,9 +113,14 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         allowedEvents = VehicleSpeechPolicy.voicePackClipEventIds,
         appVersion = app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode,
     )
+    private val releaseRoster = runCatching {
+        app.assets.open(ReleaseRoster.ASSET_PATH).bufferedReader().use { ReleaseRoster.parse(it.readText()) }
+    }.onFailure { Log.e(TAG, "출시 캐릭터 로스터를 읽지 못했어요. 캐릭터를 모두 숨깁니다.", it) }
+        .getOrElse { ReleaseRoster(emptyList()) }
     // 캐릭터 팩(GLB·2D 스프라이트)은 음성 팩과 완전히 별개다. 표현 파일·선택·검증만 맡고 음성 경로에는 관여하지 않는다.
     @Volatile
     private var installedCharacters: List<CharacterPack> = emptyList()
+    private var candidateCharacters: List<CharacterPack> = emptyList()
     private val characters = CharacterPackSelector { installedCharacters }
     private val characterRepository = CharacterPackRepository(
         source = AssetCharacterPackSource(app.assets, "characterpacks"),
@@ -205,15 +211,17 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 packNotice = packs.restore(prefs.getString(PREF_PACK, null))?.let { "$it · 기본 음성으로 말해요" }
                 packsLoaded = true
                 refreshPacks()
+                refreshCharacterPacks()
+                restoreCharacterPackIfLoaded()
             }
         }, "voicepack-load").apply { isDaemon = true }.start()
         Thread({
             val list = characterRepository.load()
             onMain {
-                installedCharacters = list
-                characterPackNotice = characters.restore(prefs.getString(PREF_CHARACTER_PACK, null))
+                candidateCharacters = list
                 characterPacksLoaded = true
                 refreshCharacterPacks()
+                restoreCharacterPackIfLoaded()
             }
         }, "characterpack-load").apply { isDaemon = true }.start()
     }
@@ -327,10 +335,23 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     // ---- 캐릭터 팩 ----
     private fun refreshCharacterPacks() {
+        releaseRoster.entries.forEach { entry ->
+            val character = candidateCharacters.firstOrNull { it.id == entry.characterId }
+            val voicePack = installed.firstOrNull { it.id == entry.voicePackId }
+            val failures = ReleaseRoster.eligibilityFailures(entry, character, voicePack)
+            if (failures.isNotEmpty()) Log.w(TAG, "출시 로스터 제외 ${entry.characterId}: ${failures.joinToString()}")
+        }
+        installedCharacters = releaseRoster.eligibleCharacters(candidateCharacters, installed)
         characterPackList = installedCharacters
         activeCharacterPack = characters.active()
         characterAnimation = activeCharacterPack?.animations?.idle ?: "idle"
         syncCharacterOverlay()
+    }
+
+    private fun restoreCharacterPackIfLoaded() {
+        if (!packsLoaded || !characterPacksLoaded) return
+        characterPackNotice = characters.restore(prefs.getString(PREF_CHARACTER_PACK, null))
+        refreshCharacterPacks()
     }
 
     /** 정차 중에만 READY 캐릭터를 고르고 저장한다. 선택한 표현은 다음 오버레이 표시부터 적용된다. */
