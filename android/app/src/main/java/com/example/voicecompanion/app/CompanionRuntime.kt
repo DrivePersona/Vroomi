@@ -220,7 +220,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     /** Repository가 SDK별 콜백을 공통 차량 입력 모델로 바꾼 뒤 이곳으로 보낸다. */
     private fun acceptVehicleInput(input: VehicleInput) = onMain {
         when (input) {
-            is VehicleInput.Event -> engine.emit(input.event)
+            is VehicleInput.Event -> if (!driving || input.allowWhileDriving) engine.emit(input.event)
             is VehicleInput.Driving -> changeDriving(input.isDriving)
             is VehicleInput.Status -> when (input.source) {
                 VehicleInput.Source.CAR_UX -> carUxStatus = input.message

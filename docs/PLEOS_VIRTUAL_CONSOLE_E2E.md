@@ -13,10 +13,17 @@ Virtual Console은 별도 차량 에뮬레이터가 아니다. 이미 실행 중
 | 브레이크 | Motion > Brake Pedal: `0 → 70%` | 기록에 `브레이크 밟기`와 `말하기 요청`이 추가됨. 정차 중이면 캐릭터 반응과 음성 재생 시작이 이어짐 |
 | 방향지시등 | Convenience > Turn Signal State: `Off → Left Blink` 또는 `Right Blink` | 기록에 `방향지시등 켜기`와 `말하기 요청`이 추가됨. 정차 중이면 캐릭터 반응과 음성 재생 시작이 이어짐 |
 | 주행 제한 | Motion > Gear: `P → D` | 앱이 주행 상태가 되고 캐릭터/편집 UI가 숨거나 차단됨. 허용된 짧은 상태 음성만 정책에 따라 재생됨 |
+| 창문 잠금 | Convenience > Window Lock: 잠김/해제 전환 | capability가 지원하는 영역만 활성으로 나타나고, dataKey cooldown으로 반복 반응이 제한됨 |
+| 창문 위치 | Convenience > Window Position: 닫힘 → 중간 → 열림 | 마지막 조작 후 800ms 안정화된 최종 범주에 한 번 반응함 |
+| 앰비언트 밝기 | Convenience > Ambient Brightness: 어두움 → 보통 → 밝음 | 슬라이더 조작 중 반복 발화 없이, 안정화된 밝기 범주에 한 번 반응함 |
+| 앰비언트 색상 | Convenience > Ambient Color: 서로 다른 색상 선택 | 변경값을 기록하고 dataKey cooldown 안의 반복 반응을 제한함 |
+| 도어 잠금/위치 | Convenience > Door Position: 지원 영역에서 변경 | capability가 반환한 영역에서 열림 범주 변경에 한 번 반응함 |
 
 `음성 재생 시작`은 앱 기록의 `재생됨` 또는 Pleos Speech Service의 시작 이벤트를 뜻한다. 단지 Virtual Console 카드의 값만 바뀐 것은 **차량 신호 송신 성공**일 뿐, 앱 반응까지 확인한 것은 아니다.
 
 > 현재 Pleos Connect v2.1.0 이미지에서는 브레이크와 방향지시등이 실측 가능하다. 드라이브 모드와 안전벨트 경고는 해당 이미지가 콜백을 제공하지 않아 이 절차의 합격 항목이 아니다.
+
+> 빠른 설정 구독(이슈 #11)은 `CAR_LIGHTS`, `CAR_WINDOWS`, `CAR_DOORS` 읽기 권한과 각 API의 capability 결과가 필요하다. 아래 시나리오는 구현 후 Pleos 전용 AVD에서 실행할 항목이며, 해당 차량/이미지에서 지원되지 않는 영역은 미지원으로 기록하고 건너뛴다.
 
 ## 사전 조건
 
@@ -24,6 +31,7 @@ Virtual Console은 별도 차량 에뮬레이터가 아니다. 이미 실행 중
 - 앱 APK를 그 AVD의 현재 Android 사용자에 설치한다. 이 이미지에서는 보통 사용자 `10`이다.
 - 앱의 실제 패키지 이름을 확인한다. `reviewDebug`는 `com.example.voicecompanion.review`, 기본 debug는 `com.example.voicecompanion`이다.
 - 앱 설정의 `주행 중 음성`은 테스트 목적에 맞게 설정한다. 브레이크·방향지시등은 우선 기어 `P`에서 검증한다.
+- 앱 Manifest와 Pleos App Market 사전 승인 범위에 읽기 권한 `CAR_LIGHTS`, `CAR_WINDOWS`, `CAR_DOORS`가 포함되어 있는지 확인한다. 제어 권한은 필요하지 않다.
 - 앱을 연 직후 각 차량 API가 보내는 **첫 상태 값은 기준값**으로만 사용한다. 이벤트 확인 전에는 브레이크를 `0%`, 방향지시등을 `Off`로 맞춘다.
 
 ## 1. AVD와 Virtual Console 연결
@@ -105,6 +113,19 @@ Virtual Console: Brake Pedal 0% → 70%
 4. 확인을 마치면 Gear를 반드시 `P`로 복구한다.
 
 Pleos 셸이 주행 중 앱 화면을 `주행 중에는 사용할 수 없습니다` 화면으로 덮는 것은 별도 결함이 아니라, 앱이 distraction-optimized 앱으로 선언되지 않았을 때의 플랫폼 주행 제한이다. 앱의 차량 연결과 음성 처리 자체는 백그라운드에서 계속될 수 있으므로, 화면이 아니라 기록과 재생 상태로 판단한다.
+
+## 6. 빠른 설정 편의 신호 확인
+
+아래 신호는 기어 `P`에서 검증한다. 조작 전에 각 데이터가 개발 빌드의 `Vehicle 데이터 디버그`에서 `수신 중`인지 확인한다. 첫 값은 기준 상태이므로 상태를 바꾸기 전에 원하는 시작값을 만든다.
+
+1. **Window Lock**를 지원 영역에서 `Unlocked → Locked`로 바꾼다. 동일 key를 다시 바꾸려면 dataKey cooldown이 지난 뒤 조작하고, 한 번의 변경이 반복 반응을 만들지 않는지 확인한다.
+2. **Window Position**을 닫힘에서 열림 방향으로 여러 번 움직인 뒤 손을 뗀다. 마지막 조작 후 800ms 동안 반복 반응이 없어야 하고, 최종 범주가 안정된 뒤 한 번 반응해야 한다.
+3. **Ambient Brightness**를 빠르게 움직여 밝기 범주를 바꾸고 멈춘다. 슬라이더 조작 중에는 발화하지 않고 마지막 범주가 안정된 뒤 한 번 반응해야 한다.
+4. **Ambient Color**를 서로 다른 색상으로 바꾼다. 새 값은 데이터 스냅샷에 기록되고, dataKey cooldown 동안 반복 반응이 제한되는지 확인한다.
+5. **Door Lock / Door Position**에서 capability가 반환한 영역 하나를 바꿔 앱의 상태·음성·gesture가 한 번 실행되는지 확인한다. `HOOD` 또는 `REAR` 영역이 반환되면 frunk/trunk 데이터로 구분해 기록한다.
+6. 기어를 `D`로 바꾸고 같은 편의 신호를 변경한다. 상태는 갱신되어도 편의 음성·gesture는 실행되지 않아야 한다. 끝나면 기어를 `P`로 복구한다.
+
+창문 위치, 블라인드, 스마트 글라스 농도와 도어 위치의 범주는 capability가 반환한 `AreaBounds`를 기준으로 계산한다. 지원 여부와 값 범위를 특정 차종이나 영역에 고정하지 않는다.
 
 ## 자동화 보조: 신호 송신 상태를 HTTP로 확인하기
 
