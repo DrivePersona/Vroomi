@@ -24,6 +24,10 @@ node --test
 python -m http.server 5183
 ```
 
+## Pleos Connect end-to-end verification
+
+To verify that a Virtual Console vehicle signal reaches the installed app and starts its character/voice reaction, follow [the Pleos Virtual Console E2E guide](docs/PLEOS_VIRTUAL_CONSOLE_E2E.md). It covers the shared AVD/Console setup, brake and turn-signal test cases, evidence criteria, cleanup, and troubleshooting.
+
 For an internal Android build, place GitHub Packages credentials outside source control in `~/.gradle/gradle.properties`:
 
 ```properties
