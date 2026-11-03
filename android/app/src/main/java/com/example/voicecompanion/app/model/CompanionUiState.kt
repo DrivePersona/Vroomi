@@ -6,7 +6,6 @@ import com.example.voicecompanion.domain.model.VehicleDataState
 import com.example.voicecompanion.domain.model.VehicleAvailability
 import com.example.voicecompanion.domain.model.VehicleEnergyProfile
 import com.example.voicecompanion.domain.model.isEnergyEvent
-import com.example.voicecompanion.voicepack.domain.VoicePack
 import com.example.voicecompanion.characterpack.model.CharacterPack
 
 /** 화면이 렌더링하는 읽기 전용 상태. UI는 Runtime의 가변 상태를 직접 읽지 않는다. */
@@ -21,11 +20,8 @@ data class CompanionUiState(
     val ttsStatus: String,
     val typedLines: Map<VehicleEvent, String>,
     val logs: List<ReactionLogItem>,
-    val packList: List<VoicePack>,
-    val activePack: VoicePack,
-    val packsLoaded: Boolean,
     val packStatus: String?,
-    val previewStatus: String,
+    val dialogueRows: List<VoiceDialogueRow>,
     val fixedLines: Map<VehicleEvent, String?>,
     val characterPackList: List<CharacterPack>,
     val activeCharacterPack: CharacterPack?,
@@ -54,3 +50,11 @@ data class ReactionLogItem(
     val text: String,
     val note: String,
 )
+
+data class VoiceDialogueRow(
+    val eventId: String,
+    val label: String,
+    val variants: List<VoiceDialogueVariant>,
+)
+
+data class VoiceDialogueVariant(val index: Int, val text: String)
