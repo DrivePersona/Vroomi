@@ -115,6 +115,22 @@ class ReleaseRosterTest {
             .contains("required voice clip has no indexed variant: BRAKE"))
     }
 
+    @Test
+    fun `gesture resolver returns at most one declared one-shot reaction`() {
+        val valid = CharacterAnimations(
+            "idle",
+            mapOf("BRAKE" to "surprise"),
+            mapOf("surprise" to SupportedGesture("jump", 700, oneShot = true)),
+        )
+        assertEquals(SupportedGesture("jump", 700, oneShot = true), CharacterGestureResolver.resolve(valid, "BRAKE"))
+        assertEquals(null, CharacterGestureResolver.resolve(valid, "WARNING"))
+        assertEquals(null, CharacterGestureResolver.resolve(valid.copy(supportedGestures = emptyMap()), "BRAKE"))
+        assertEquals(null, CharacterGestureResolver.resolve(
+            valid.copy(supportedGestures = mapOf("surprise" to SupportedGesture("jump", 700, oneShot = false))),
+            "BRAKE",
+        ))
+    }
+
     private fun character(
         voicePackId: String? = entry.voicePackId,
         commercialUse: Boolean = true,

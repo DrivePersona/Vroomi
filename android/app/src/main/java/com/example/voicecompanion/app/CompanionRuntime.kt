@@ -23,6 +23,7 @@ import com.example.voicecompanion.app.model.VoiceDialogueRow
 import com.example.voicecompanion.app.release.ReleaseRoster
 import com.example.voicecompanion.app.release.CharacterVoiceBinding
 import com.example.voicecompanion.app.release.CharacterDialogueMatrix
+import com.example.voicecompanion.app.release.CharacterGestureResolver
 import com.example.voicecompanion.ui.overlay.CharacterOverlayHost
 import com.example.voicecompanion.ui.overlay.OverlayShowResult
 import com.example.voicecompanion.ui.overlay.VrOverlayInput
@@ -281,7 +282,10 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     override fun changeDriving(value: Boolean) = onMain {
         driving = value
         engine.setDriving(value)
-        if (value && previewSeq == speakSeq) stop()
+        if (value) {
+            cancelGesture()
+            if (previewSeq == speakSeq) stop()
+        }
         syncCharacterOverlay()
     }
 
@@ -462,6 +466,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (!isGreeting && !ReleaseRoster.REQUIRED_VOICE_EVENT_IDS.contains(eventId)) return@onMain
         val seq = ++speakSeq
         previewSeq = seq
+        cancelGesture()
         packs.stopAll()
         if (!requestFocus()) return@onMain
         val text = activePack.lineFor(eventId, variantIndex) ?: ""
@@ -476,8 +481,15 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         )
         val started = activePack.voice.speak(
             request,
-            note = { msg -> Log.d(TAG, "대사 미리듣기 $eventId[$variantIndex]: $msg") },
-            done = { onMain { if (seq == speakSeq) audio.abandonFocus() } },
+            note = { msg ->
+                onMain {
+                    Log.d(TAG, "대사 미리듣기 $eventId[$variantIndex]: $msg")
+                    if (msg == PLAYBACK_STARTED && eventId in VehicleSpeechPolicy.characterClipEventIds) {
+                        startGesture(eventId, seq)
+                    }
+                }
+            },
+            done = { onMain { if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() } } },
         )
         if (!started) audio.abandonFocus()
     }
@@ -495,10 +507,9 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         val neutralDelivery = neutral || output == SpeechOutput.NEUTRAL_CLIP || output == SpeechOutput.SYSTEM_TTS
         val useSystemTtsOnly = output == SpeechOutput.SYSTEM_TTS
         val seq = ++speakSeq
-        // ReactionEngine이 곧 showAvatar를 부를 정차·비중립 경로에서만 실제 캐릭터 연출을 바꾼다.
-        if (!driving && output == SpeechOutput.CHARACTER_CLIP) {
-            characterAnimation = activeCharacterPack?.animations?.forEvent(VehicleSpeechPolicy.canonicalEventId(event)) ?: "idle"
-            syncCharacterOverlay()
+        cancelGesture()
+        val gestureEventId = VehicleSpeechPolicy.canonicalEventId(event).takeIf {
+            !driving && !neutralDelivery && output == SpeechOutput.CHARACTER_CLIP && activePack.canSpeak(it)
         }
         val request = SpeakRequest(
             eventId = VehicleSpeechPolicy.canonicalEventId(event),
@@ -509,18 +520,51 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             pitch = if (neutralDelivery) 1f else preset.pitch,
             rate = if (neutralDelivery) 1f else preset.rate,
         )
+        var usedFallback = false
         packs.speak(
             request,
-            note = { msg -> onMain { row?.let { it.note += " · $msg" } } },
+            note = { msg -> onMain {
+                row?.let { it.note += " · $msg" }
+                if (msg == PLAYBACK_STARTED && !usedFallback) gestureEventId?.let { startGesture(it, seq) }
+            } },
             // 포커스는 가장 최근 요청이 끝났을 때만 놓는다. 끊긴 이전 요청의 늦은 done이 새 요청의 포커스를 놓으면 안 된다.
-            done = { onMain { if (seq == speakSeq) audio.abandonFocus() } },
-            onFallback = { why -> row?.let { it.note += " · $why" } },
+            done = { onMain { if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() } } },
+            onFallback = { why ->
+                usedFallback = true
+                row?.let { it.note += " · $why" }
+            },
         )
     }
 
     override fun stop() {
+        cancelGesture()
         packs.stopAll()
         audio.abandonFocus()
+    }
+
+    private fun startGesture(eventId: String, speechSequence: Int) {
+        if (speechSequence != speakSeq || driving) return
+        val character = activeCharacterPack ?: return
+        val gesture = CharacterGestureResolver.resolve(character.animations, eventId) ?: return
+        characterAnimation = gesture.animationName
+        syncCharacterOverlay()
+        // CharacterSurfaceView plays the declared GLB clip once and holds its final pose until audio ends.
+    }
+
+    private fun finishGesture(speechSequence: Int) {
+        if (speechSequence == speakSeq) resetGesture()
+    }
+
+    private fun cancelGesture() {
+        activeCharacterPack?.let { character ->
+            characterAnimation = character.animations?.idle ?: "idle"
+            syncCharacterOverlay()
+        }
+    }
+
+    private fun resetGesture() {
+        characterAnimation = activeCharacterPack?.animations?.idle ?: "idle"
+        syncCharacterOverlay()
     }
 
     override fun requestFocus(): Boolean = !navBusy && audio.requestFocus()
@@ -555,6 +599,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     companion object {
         const val IDLE_BUBBLE = "차량 이벤트가 생기면 여기서 말해요."
+        private const val PLAYBACK_STARTED = "재생됨"
         const val MAX_LINE = 60
         private const val MAX_LOGS = 50
         private const val MAX_VOLUME = 0.8f // 음량 상한(§6). 엔진과 미리듣기가 같은 값을 쓴다
