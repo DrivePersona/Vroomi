@@ -280,7 +280,7 @@ private fun CustomCard(state: CompanionUiState, onTouch: (CompanionTouch) -> Uni
         )
 
         Text("대사", style = MaterialTheme.typography.titleSmall)
-        VehicleEvent.entries.forEach { event ->
+        state.availableEvents.forEach { event ->
             val fixed = state.fixedLine(event)
             OutlinedTextField(
                 value = fixed ?: state.typedLines[event] ?: event.defaultLine,
@@ -425,7 +425,7 @@ private fun PackRow(state: CompanionUiState, pack: VoicePack, onTouch: (Companio
                 ) { Text(if (pack.greeting() != null) "인사 듣기" else "미리듣기") }
                 TextButton({ showInfo = !showInfo }) { Text(if (showInfo) "정보 접기" else "정보") }
             }
-            if (showInfo) HelperText(packInfoText(pack))
+            if (showInfo) HelperText(packInfoText(pack, state))
         }
     }
 }
@@ -439,7 +439,7 @@ private fun packStateText(pack: VoicePack): String = when (val state = pack.stat
     is PackState.Invalid -> "사용할 수 없어요 · ${state.reason}"
 }
 
-private fun packInfoText(pack: VoicePack): String {
+private fun packInfoText(pack: VoicePack, state: CompanionUiState): String {
     val info = pack.info ?: return "폰이나 차량의 음성 합성(TTS)이 읽어요. 모든 반응에 쓰이고 대사를 바꿀 수 있어요."
     val voice = when (info.provenance.voiceSource) {
         "self-recorded" -> "직접 녹음"
@@ -448,7 +448,7 @@ private fun packInfoText(pack: VoicePack): String {
         "synthetic" -> "합성"
         else -> info.provenance.voiceSource
     }
-    val reactions = VehicleEvent.entries.filter { !it.neutral }
+    val reactions = state.availableEvents.filter { !it.neutral }
     return buildString {
         append("버전 ${info.version} · 라이선스 ${info.provenance.license} · 상업 이용 ${if (info.provenance.commercialUse) "가능" else "불가"}")
         append("\n목소리 출처: $voice")
@@ -498,7 +498,7 @@ private fun SimulatorCard(state: CompanionUiState, onTouch: (CompanionTouch) -> 
         SwitchRow("주행 중 음성 허용", "끄면 주행 중 음성 반응을 멈춰요.", state.voiceWhileDriving) { onTouch(CompanionTouch.VoiceWhileDrivingChanged(it)) }
         SwitchRow("내비 안내 중", "오디오 포커스를 잃어 반응이 멈춰요.", state.navBusy) { onTouch(CompanionTouch.NavigationBusyChanged(it)) }
         Text("차량 이벤트", style = MaterialTheme.typography.titleSmall)
-        VehicleEvent.entries.forEach { event ->
+        state.availableEvents.forEach { event ->
             CompanionSecondaryButton(event.label, { onTouch(CompanionTouch.VehicleEventRequested(event)) })
         }
         CompanionPrimaryButton("동시에 3종 반응 확인", { onTouch(CompanionTouch.EventBurstRequested) })

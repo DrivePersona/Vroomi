@@ -12,6 +12,9 @@ import com.example.voicecompanion.domain.model.VehicleEvent
 import com.example.voicecompanion.domain.model.VehicleInput
 import com.example.voicecompanion.domain.model.VehicleDataCatalog
 import com.example.voicecompanion.domain.model.VehicleDataState
+import com.example.voicecompanion.domain.model.VehicleEnergyProfile
+import com.example.voicecompanion.domain.model.VehicleAvailability
+import com.example.voicecompanion.domain.model.isEnergyEvent
 import com.example.voicecompanion.app.model.CompanionUiState
 import com.example.voicecompanion.app.model.ReactionLogItem
 import com.example.voicecompanion.ui.overlay.CharacterOverlayHost
@@ -220,7 +223,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     /** Repository가 SDK별 콜백을 공통 차량 입력 모델로 바꾼 뒤 이곳으로 보낸다. */
     private fun acceptVehicleInput(input: VehicleInput) = onMain {
         when (input) {
-            is VehicleInput.Event -> if (!driving || input.allowWhileDriving) engine.emit(input.event)
+            is VehicleInput.Event -> if ((!input.event.isEnergyEvent || energyProfileAvailable()) && (!driving || input.allowWhileDriving)) engine.emit(input.event)
             is VehicleInput.Driving -> changeDriving(input.isDriving)
             is VehicleInput.Status -> when (input.source) {
                 VehicleInput.Source.CAR_UX -> carUxStatus = input.message
@@ -259,7 +262,15 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     )
 
     // ---- 입력 (Pleos·주행 규제·시뮬레이터 버튼이 같은 길로 들어온다) ----
-    override fun emit(e: VehicleEvent) = onMain { engine.emit(e) }
+    override fun emit(e: VehicleEvent) = onMain {
+        if (!e.isEnergyEvent || energyProfileAvailable()) engine.emit(e)
+    }
+
+    private fun energyProfileAvailable(): Boolean = vehicleData.any {
+        it.definition.dataKey == "vehicle-energy-profile" &&
+            it.availability == VehicleAvailability.ACTIVE &&
+            it.value?.let { value -> runCatching { VehicleEnergyProfile.valueOf(value) }.getOrNull() }?.let { it != VehicleEnergyProfile.UNAVAILABLE } == true
+    }
 
     override fun burst() = onMain { listOf(VehicleEvent.BRAKE, VehicleEvent.TURN, VehicleEvent.WARNING).forEach(engine::emit) }
 
@@ -412,7 +423,9 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     override fun previewPack(pack: VoicePack) {
         if (driving || pack.state !is PackState.Ready) return
         val greeting = pack.greeting()
-        val vehiclePreview = VehicleEvent.entries.firstOrNull { !it.neutral && pack.canSpeak(it.name) }
+        val vehiclePreview = VehicleEvent.entries.firstOrNull {
+            !it.neutral && (!it.isEnergyEvent || energyProfileAvailable()) && pack.canSpeak(it.name)
+        }
         if (greeting == null && vehiclePreview == null) return
         val eventId = greeting?.eventId ?: checkNotNull(vehiclePreview).name
         val text = greeting?.text ?: checkNotNull(vehiclePreview).let { event ->

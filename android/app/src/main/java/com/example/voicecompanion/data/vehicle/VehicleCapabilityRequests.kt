@@ -15,6 +15,20 @@ internal class VehicleCapabilityRequests(
         fallback: VehicleDataDefinition,
         call: (onComplete: (T) -> Unit, onFailed: (Exception) -> Unit) -> Unit,
         onComplete: (T) -> Unit,
+    ) = requestInternal(fallback, call, onComplete, null)
+
+    fun <T> request(
+        fallback: VehicleDataDefinition,
+        call: (onComplete: (T) -> Unit, onFailed: (Exception) -> Unit) -> Unit,
+        onComplete: (T) -> Unit,
+        onFailure: (Exception) -> Unit,
+    ) = requestInternal(fallback, call, onComplete, onFailure)
+
+    private fun <T> requestInternal(
+        fallback: VehicleDataDefinition,
+        call: (onComplete: (T) -> Unit, onFailed: (Exception) -> Unit) -> Unit,
+        onComplete: (T) -> Unit,
+        onFailure: ((Exception) -> Unit)?,
     ) {
         begin()
         val completed = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -34,11 +48,21 @@ internal class VehicleCapabilityRequests(
                     }
                 },
                 { error ->
-                    completeOnce { if (!isStopped()) onError(fallback, error) }
+                    completeOnce {
+                        if (!isStopped()) {
+                            onError(fallback, error)
+                            onFailure?.invoke(error)
+                        }
+                    }
                 },
             )
         } catch (e: Exception) {
-            completeOnce { if (!isStopped()) onError(fallback, e) }
+            completeOnce {
+                if (!isStopped()) {
+                    onError(fallback, e)
+                    onFailure?.invoke(e)
+                }
+            }
         }
     }
 
