@@ -10,6 +10,8 @@ import com.example.voicecompanion.domain.model.DropReason
 import com.example.voicecompanion.domain.model.LogEntry
 import com.example.voicecompanion.domain.model.VehicleEvent
 import com.example.voicecompanion.domain.model.VehicleInput
+import com.example.voicecompanion.domain.model.VehicleDataCatalog
+import com.example.voicecompanion.domain.model.VehicleDataState
 import com.example.voicecompanion.app.model.CompanionUiState
 import com.example.voicecompanion.app.model.ReactionLogItem
 import com.example.voicecompanion.ui.overlay.CharacterOverlayHost
@@ -78,6 +80,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     var preset by mutableStateOf(VoicePreset.BRIGHT)
         private set
     var pleosStatus by mutableStateOf("시작 전")
+        private set
+    var vehicleData by mutableStateOf(VehicleDataCatalog.initialState)
         private set
     var carUxStatus by mutableStateOf("시작 전")
         private set
@@ -222,6 +226,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 VehicleInput.Source.CAR_UX -> carUxStatus = input.message
                 VehicleInput.Source.PLEOS_VEHICLE -> pleosStatus = input.message
             }
+            is VehicleInput.Catalog -> vehicleData = input.states
         }
     }
 
@@ -232,6 +237,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         navBusy = navBusy,
         preset = preset,
         pleosStatus = pleosStatus,
+        vehicleData = vehicleData,
         carUxStatus = carUxStatus,
         ttsStatus = ttsStatus,
         typedLines = typedLines.toMap(),

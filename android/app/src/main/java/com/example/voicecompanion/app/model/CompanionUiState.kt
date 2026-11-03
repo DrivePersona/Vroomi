@@ -2,6 +2,7 @@ package com.example.voicecompanion.app.model
 
 import com.example.voicecompanion.data.audio.VoicePreset
 import com.example.voicecompanion.domain.model.VehicleEvent
+import com.example.voicecompanion.domain.model.VehicleDataState
 import com.example.voicecompanion.voicepack.domain.VoicePack
 import com.example.voicecompanion.characterpack.model.CharacterPack
 
@@ -12,6 +13,7 @@ data class CompanionUiState(
     val navBusy: Boolean,
     val preset: VoicePreset,
     val pleosStatus: String,
+    val vehicleData: List<VehicleDataState>,
     val carUxStatus: String,
     val ttsStatus: String,
     val typedLines: Map<VehicleEvent, String>,
