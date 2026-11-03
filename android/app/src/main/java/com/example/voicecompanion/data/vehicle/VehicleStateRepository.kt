@@ -24,6 +24,7 @@ class VehicleStateRepository(
     private val pendingDebounce = HashMap<String, () -> Unit>()
     private val lastReactionMs = HashMap<String, Long>()
     private val lastStableBucket = HashMap<String, String>()
+    private val lastStableValue = HashMap<String, String>()
     private val executor = ScheduledThreadPoolExecutor(1).apply { removeOnCancelPolicy = true }
     private val scheduleBlock = schedule ?: { delayMs, block ->
         val future = executor.schedule(block, delayMs, TimeUnit.MILLISECONDS)
@@ -85,7 +86,8 @@ class VehicleStateRepository(
             val immediate = if (previous == null || previous == value) null else {
                 when (definition.reactionPolicy) {
                     VehicleReactionPolicy.CHANGE -> definition.reactionEvent
-                    VehicleReactionPolicy.BRIGHTNESS_BUCKET, VehicleReactionPolicy.POSITION_BUCKET -> null
+                    VehicleReactionPolicy.BRIGHTNESS_BUCKET, VehicleReactionPolicy.POSITION_BUCKET,
+                    VehicleReactionPolicy.DEBOUNCED_CHANGE -> null
                     null -> legacyReactionFor(dataKey, previous, value)
                 }
             }
@@ -93,17 +95,45 @@ class VehicleStateRepository(
             Triple(updated, immediate, baselineBucket)
         }
         onSnapshot(snapshot())
+        if (result.first.definition.reactionPolicy == VehicleReactionPolicy.DEBOUNCED_CHANGE) {
+            synchronized(lock) { lastStableValue.putIfAbsent(dataKey, result.first.value!!) }
+        }
         if (result.third != null) synchronized(lock) { lastStableBucket.putIfAbsent(dataKey, result.third!!) }
         result.second?.let { dispatchIfAllowed(dataKey, it) }
-        if (result.first.definition.reactionPolicy == VehicleReactionPolicy.BRIGHTNESS_BUCKET ||
-            result.first.definition.reactionPolicy == VehicleReactionPolicy.POSITION_BUCKET
-        ) scheduleContinuousReaction(dataKey)
+        when (result.first.definition.reactionPolicy) {
+            VehicleReactionPolicy.BRIGHTNESS_BUCKET, VehicleReactionPolicy.POSITION_BUCKET -> scheduleContinuousReaction(dataKey)
+            VehicleReactionPolicy.DEBOUNCED_CHANGE -> scheduleDebouncedChange(dataKey)
+            else -> Unit
+        }
+    }
+
+    private fun scheduleDebouncedChange(dataKey: String) {
+        val cancelPrevious = synchronized(lock) { pendingDebounce.remove(dataKey) }
+        cancelPrevious?.invoke()
+        val definition = synchronized(lock) { definitions[dataKey] } ?: return
+        val cancel = scheduleBlock(definition.debounceMs) {
+            val event = synchronized(lock) {
+                pendingDebounce.remove(dataKey)
+                val stable = lastStableValue[dataKey]
+                val value = states[dataKey]?.value
+                if (stable == value) null
+                else {
+                    if (value != null) lastStableValue[dataKey] = value
+                    definitions[dataKey]?.reactionEvent
+                }
+            }
+            event?.let { dispatchIfAllowed(dataKey, it) }
+        }
+        synchronized(lock) {
+            if (dataKey in states) pendingDebounce[dataKey] = cancel else cancel.invoke()
+        }
     }
 
     private fun scheduleContinuousReaction(dataKey: String) {
         val cancelPrevious = synchronized(lock) { pendingDebounce.remove(dataKey) }
         cancelPrevious?.invoke()
-        val cancel = scheduleBlock(800) {
+        val delay = synchronized(lock) { definitions[dataKey]?.debounceMs ?: 800L }
+        val cancel = scheduleBlock(delay) {
             val reaction = synchronized(lock) {
                 pendingDebounce.remove(dataKey)
                 val current = states[dataKey] ?: return@synchronized null

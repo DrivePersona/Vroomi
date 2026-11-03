@@ -136,6 +136,47 @@ class VehicleStateRepositoryTest {
         repository.close()
     }
 
+    @Test
+    fun comfortChangesWaitOneSecondAndOnlyAnnounceTheFinalChangedValue() {
+        data class Scheduled(var cancelled: Boolean, val delay: Long, val action: () -> Unit)
+        val tasks = mutableListOf<Scheduled>()
+        val events = mutableListOf<Pair<VehicleEvent, Boolean>>()
+        val repository = VehicleStateRepository(
+            onSnapshot = {},
+            onReaction = { event, allowed -> events += event to allowed },
+            schedule = { delay, action ->
+                val task = Scheduled(false, delay, action)
+                tasks += task
+                { task.cancelled = true }
+            },
+        )
+        val definition = VehicleDataDefinition(
+            dataKey = "hvac-target:driver",
+            displayName = "공조 설정 온도",
+            domain = VehicleDomain.CONVENIENCE,
+            capability = "checkHvacTemperatureCapabilities",
+            permission = "pleos.car.permission.CAR_CLIMATE",
+            valueType = VehicleValueType.INTEGER,
+            reactionEvent = VehicleEvent.COMFORT,
+            reactionPolicy = VehicleReactionPolicy.DEBOUNCED_CHANGE,
+            cooldownMs = 0,
+            allowWhileDriving = false,
+            debounceMs = 1_000,
+        )
+        repository.registerDefinition(definition)
+        repository.observe(definition.dataKey, "21.0")
+        repository.observe(definition.dataKey, "22.0")
+        repository.observe(definition.dataKey, "21.0") // back to baseline, so stay quiet
+        assertEquals(listOf(1_000L, 1_000L, 1_000L), tasks.map { it.delay })
+        tasks.filterNot { it.cancelled }.forEach { it.action() }
+        assertTrue(events.isEmpty())
+
+        repository.observe(definition.dataKey, "23.0")
+        tasks.filterNot { it.cancelled }.forEach { it.action() }
+        assertEquals(listOf(VehicleEvent.COMFORT to false), events)
+        repository.close()
+    }
+
     private fun convenienceDefinition(
         key: String,
         policy: VehicleReactionPolicy,
