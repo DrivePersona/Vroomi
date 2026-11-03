@@ -23,7 +23,7 @@ The ten candidate names and voicePackId values come from issue #16 and voice-pac
 
 The matrix uses the exact 13 canonical IDs in voice-pack-sdk#5: GREETING, BRAKE, TURN, MODE, TIRE, WARNING, DOOR, WINDOW, AMBIENT_LIGHT, HVAC, WIPER, CHARGE, ENERGY_LOW.
 
-Current app event names differ for several slots: AMBIENT_LIGHT maps to app LIGHT, HVAC to COMFORT, and CHARGE to CHARGE_PORT. GREETING is a pack preview rather than a vehicle event. WIPER has no enabled speech event. The app exposes four energy bands and ENERGY_URGENT; it does not yet emit canonical ENERGY_LOW. Resolve these mappings before approved text is packaged.
+The app adapts its runtime names to these canonical IDs before voice-pack lookup, character-pack lookup, and speech requests: AMBIENT_LIGHT maps from LIGHT, HVAC from COMFORT, CHARGE from CHARGE_PORT, and ENERGY_LOW from ENERGY_URGENT. GREETING is a pack preview rather than a vehicle event. WIPER has no enabled speech event. Only ENERGY_LOW has a v1 clip slot; the app keeps the other three energy bands silent.
 
 | Canonical eventId | Current app mapping | Status |
 | --- | --- | --- |
@@ -35,11 +35,11 @@ Current app event names differ for several slots: AMBIENT_LIGHT maps to app LIGH
 | WARNING | WARNING | Public signal mapping still requires verification |
 | DOOR | DOOR | Stationary-only input; release capability needs verification |
 | WINDOW | WINDOW | Stationary-only input; release capability needs verification |
-| AMBIENT_LIGHT | LIGHT | Canonical ID adapter is needed |
-| HVAC | COMFORT | Canonical ID adapter is needed |
+| AMBIENT_LIGHT | LIGHT → AMBIENT_LIGHT | Canonical ID adapter implemented in #14; Pleos signal E2E remains required |
+| HVAC | COMFORT → HVAC | Canonical ID adapter implemented in #14; Pleos signal E2E remains required |
 | WIPER | None | Keep silent until policy approval |
-| CHARGE | CHARGE_PORT | Charge start/completion signal remains unavailable in Vehicle SDK 2.3.2 |
-| ENERGY_LOW | ENERGY_URGENT | Canonical event and neutral clip policy need an explicit adapter |
+| CHARGE | CHARGE_PORT → CHARGE | Canonical ID adapter implemented in #14; charge start/completion signal remains unavailable in Vehicle SDK 2.3.2 |
+| ENERGY_LOW | ENERGY_URGENT → ENERGY_LOW | Canonical ID adapter implemented in #14; intermediate energy bands stay silent |
 
 ## Draft voice personas
 
@@ -48,7 +48,7 @@ Persona descriptions are inferred from the candidate display names because appro
 ## Safety and activation notes
 
 - WARNING uses the same neutral sentence for every candidate; it must have no gesture. ENERGY_LOW is also shared and neutral. The #14 app policy now prefers an approved neutral voice-pack clip and uses built-in system TTS only when that clip is unavailable; safety events remain excluded from character gestures.
-- The app currently emits ENERGY_URGENT while this matrix and voice-pack-sdk#5 use ENERGY_LOW. Add and validate this canonical event adapter before approving energy audio. Candidate voice packs do not yet contain approved canonical safety clips.
+- The app emits ENERGY_URGENT internally and maps it to the canonical ENERGY_LOW pack ID. Candidate voice packs do not yet contain approved canonical safety clips; until one is available, the app falls back to the built-in system voice without a character gesture.
 - BRAKE and TURN are edge-triggered. MODE, TIRE, and WARNING remain inactive until their public Vehicle Service signal/capability is verified.
 - DOOR, WINDOW, AMBIENT_LIGHT, HVAC, and CHARGE are stationary-only. CHARGE start/completion remains inactive until a supported state-change signal exists.
 - WIPER remains silent by default until #12 and #14 explicitly authorize speech.
