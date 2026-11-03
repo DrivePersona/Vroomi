@@ -1,6 +1,6 @@
 # Voice Companion Release Roster v1
 
-`android/app/src/main/assets/release-roster.json` is the versioned allowlist used by the app. Candidate, archived, and development packs stay outside this file and are not shown by the character picker.
+`android/app/src/main/assets/release-roster.json` is the versioned allowlist used by the app. Candidate, archived, and development packs stay outside this file and are not shown by either the character or voice picker.
 
 ## Eligibility checked by the app
 

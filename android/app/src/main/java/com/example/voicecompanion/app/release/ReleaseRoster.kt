@@ -22,10 +22,24 @@ data class ReleaseRoster(val entries: List<ReleaseRosterEntry>) {
     fun eligibleCharacters(
         candidates: List<CharacterPack>,
         voicePacks: List<VoicePack>,
-    ): List<CharacterPack> = entries.mapNotNull { entry ->
-        val character = candidates.firstOrNull { it.id == entry.characterId } ?: return@mapNotNull null
-        val voicePack = voicePacks.firstOrNull { it.id == entry.voicePackId } ?: return@mapNotNull null
-        if (eligibilityFailures(entry, character, voicePack).isEmpty()) character else null
+    ): List<CharacterPack> = eligibleEntries(candidates, voicePacks).mapNotNull { entry ->
+        candidates.firstOrNull { it.id == entry.characterId }
+    }
+
+    fun eligibleVoicePacks(
+        candidates: List<CharacterPack>,
+        voicePacks: List<VoicePack>,
+    ): List<VoicePack> = eligibleEntries(candidates, voicePacks).mapNotNull { entry ->
+        voicePacks.firstOrNull { it.id == entry.voicePackId }
+    }
+
+    fun eligibleEntries(
+        candidates: List<CharacterPack>,
+        voicePacks: List<VoicePack>,
+    ): List<ReleaseRosterEntry> = entries.filter { entry ->
+        val character = candidates.firstOrNull { it.id == entry.characterId }
+        val voicePack = voicePacks.firstOrNull { it.id == entry.voicePackId }
+        eligibilityFailures(entry, character, voicePack).isEmpty()
     }
 
     companion object {

@@ -26,6 +26,7 @@ class ReleaseRosterTest {
     fun `empty versioned roster parses and leaves candidate packs out`() {
         val roster = ReleaseRoster.parse("""{"schemaVersion":1,"entries":[]}""")
         assertTrue(roster.eligibleCharacters(listOf(character()), listOf(voicePack())).isEmpty())
+        assertTrue(roster.eligibleVoicePacks(listOf(character()), listOf(voicePack())).isEmpty())
     }
 
     @Test
@@ -73,7 +74,9 @@ class ReleaseRosterTest {
         val roster = ReleaseRoster(listOf(entry))
         val candidate = character()
         assertEquals(listOf(candidate), roster.eligibleCharacters(listOf(candidate), listOf(voicePack())))
+        assertEquals(listOf(voicePack().id), roster.eligibleVoicePacks(listOf(candidate), listOf(voicePack())).map { it.id })
         assertTrue(roster.eligibleCharacters(listOf(character(commercialUse = false)), listOf(voicePack())).isEmpty())
+        assertTrue(roster.eligibleVoicePacks(emptyList(), listOf(voicePack())).isEmpty())
         assertTrue(roster.eligibleCharacters(listOf(character()), emptyList()).isEmpty())
     }
 

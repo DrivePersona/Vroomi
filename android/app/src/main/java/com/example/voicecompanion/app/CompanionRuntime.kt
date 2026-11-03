@@ -106,6 +106,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     // 어느 팩이 말할지·대사가 무엇인지는 여기서 정한다. 설치된 파일 팩은 시작할 때 백그라운드에서 읽어 채운다.
     @Volatile
     private var installed: List<VoicePack> = emptyList()
+    private var candidateVoicePacks: List<VoicePack> = emptyList()
     private val packs = PackSelector(audio.builtinPack) { installed }
     private val repository = PackRepository(
         source = AssetPackSource(app.assets, "voicepacks"),
@@ -207,11 +208,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         Thread({
             val list = repository.load()
             onMain {
-                installed = list
-                packNotice = packs.restore(prefs.getString(PREF_PACK, null))?.let { "$it · 기본 음성으로 말해요" }
+                candidateVoicePacks = list
                 packsLoaded = true
                 refreshPacks()
                 refreshCharacterPacks()
+                restorePackIfLoaded()
                 restoreCharacterPackIfLoaded()
             }
         }, "voicepack-load").apply { isDaemon = true }.start()
@@ -220,7 +221,9 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             onMain {
                 candidateCharacters = list
                 characterPacksLoaded = true
+                refreshPacks()
                 refreshCharacterPacks()
+                restorePackIfLoaded()
                 restoreCharacterPackIfLoaded()
             }
         }, "characterpack-load").apply { isDaemon = true }.start()
@@ -328,6 +331,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     // ---- 음성 팩 ----
     /** 선택기의 상태를 화면 상태로 옮기고 대사를 다시 채운다. 설치된 팩을 읽은 뒤와 팩을 고른 뒤에 부른다. */
     private fun refreshPacks() {
+        installed = releaseRoster.eligibleVoicePacks(candidateCharacters, candidateVoicePacks)
         packList = listOf(audio.builtinPack) + installed
         activePack = packs.active()
         refreshLines()
@@ -335,13 +339,17 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     // ---- 캐릭터 팩 ----
     private fun refreshCharacterPacks() {
+        installed = releaseRoster.eligibleVoicePacks(candidateCharacters, candidateVoicePacks)
         releaseRoster.entries.forEach { entry ->
             val character = candidateCharacters.firstOrNull { it.id == entry.characterId }
-            val voicePack = installed.firstOrNull { it.id == entry.voicePackId }
+            val voicePack = candidateVoicePacks.firstOrNull { it.id == entry.voicePackId }
             val failures = ReleaseRoster.eligibilityFailures(entry, character, voicePack)
             if (failures.isNotEmpty()) Log.w(TAG, "출시 로스터 제외 ${entry.characterId}: ${failures.joinToString()}")
         }
-        installedCharacters = releaseRoster.eligibleCharacters(candidateCharacters, installed)
+        installedCharacters = releaseRoster.eligibleCharacters(candidateCharacters, candidateVoicePacks)
+        packList = listOf(audio.builtinPack) + installed
+        activePack = packs.active()
+        refreshLines()
         characterPackList = installedCharacters
         activeCharacterPack = characters.active()
         characterAnimation = activeCharacterPack?.animations?.idle ?: "idle"
@@ -352,6 +360,12 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (!packsLoaded || !characterPacksLoaded) return
         characterPackNotice = characters.restore(prefs.getString(PREF_CHARACTER_PACK, null))
         refreshCharacterPacks()
+    }
+
+    private fun restorePackIfLoaded() {
+        if (!packsLoaded || !characterPacksLoaded) return
+        packNotice = packs.restore(prefs.getString(PREF_PACK, null))?.let { "$it · 기본 음성으로 말해요" }
+        refreshPacks()
     }
 
     /** 정차 중에만 READY 캐릭터를 고르고 저장한다. 선택한 표현은 다음 오버레이 표시부터 적용된다. */
