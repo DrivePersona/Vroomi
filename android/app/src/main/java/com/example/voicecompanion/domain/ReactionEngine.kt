@@ -81,7 +81,7 @@ class ReactionEngine(
         val text = line(e)
         // 여기서 아는 건 '요청함'까지. 실제로 재생됐는지는 플랫폼이 따로 알려 준다.
         platform.log(LogEntry.Speak(e, text))
-        platform.speak(e, text, output == SpeechOutput.SYSTEM_TTS, maxVolume)
+        platform.speak(e, text, output == SpeechOutput.NEUTRAL_CLIP || output == SpeechOutput.SYSTEM_TTS, maxVolume)
         if (!driving && output == SpeechOutput.CHARACTER_CLIP) platform.showAvatar(e.face, text)
     }
 

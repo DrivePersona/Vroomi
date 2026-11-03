@@ -109,7 +109,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private val repository = PackRepository(
         source = AssetPackSource(app.assets, "voicepacks"),
         factories = mapOf(ClipPackFactory.KIND to ClipPackFactory(newOutput = audio::newPcmOutput)),
-        allowedEvents = VehicleSpeechPolicy.characterClipEventIds, // 시스템 TTS 안전 안내는 음성팩 clip 대상이 아니다
+        allowedEvents = VehicleSpeechPolicy.voicePackClipEventIds,
         appVersion = app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode,
     )
     // 캐릭터 팩(GLB·2D 스프라이트)은 음성 팩과 완전히 별개다. 표현 파일·선택·검증만 맡고 음성 경로에는 관여하지 않는다.
@@ -118,7 +118,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private val characters = CharacterPackSelector { installedCharacters }
     private val characterRepository = CharacterPackRepository(
         source = AssetCharacterPackSource(app.assets, "characterpacks"),
-        allowedEvents = VehicleSpeechPolicy.characterClipEventIds,
+        allowedEvents = VehicleSpeechPolicy.characterGestureEventIds,
         appVersion = app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode,
     )
     private var speakSeq = 0 // 가장 최근 말하기 요청의 번호. 늦게 온 이전 요청의 done이 새 요청의 포커스를 놓지 않게 한다
@@ -299,6 +299,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     }
 
     override fun setLine(e: VehicleEvent, text: String) {
+        if (VehicleSpeechPolicy.outputFor(e) == SpeechOutput.NEUTRAL_CLIP) return
         val t = text.take(MAX_LINE)
         typedLines[e] = t
         engine.setLine(e, packs.lineFor(e.name, t))
@@ -307,7 +308,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     /** 활성 팩이 정한 대사(자유 문장 팩이면 사용자 대사 그대로)를 엔진에 넣는다. */
     private fun refreshLines() {
-        VehicleEvent.entries.forEach { e -> engine.setLine(e, packs.lineFor(e.name, typedLines[e] ?: e.defaultLine)) }
+        VehicleEvent.entries.forEach { e ->
+            val fallback = if (VehicleSpeechPolicy.outputFor(e) == SpeechOutput.NEUTRAL_CLIP) e.defaultLine
+            else typedLines[e] ?: e.defaultLine
+            engine.setLine(e, packs.lineFor(e.name, fallback))
+        }
     }
 
     override fun clearLogs() = logs.clear()
@@ -403,7 +408,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     /** 활성 팩이 이 반응의 대사를 정해 두었으면 그 대사(자막). 아니면 null — 사용자가 바꿀 수 있다. */
     fun fixedLine(e: VehicleEvent): String? =
-        activePack.takeIf { !it.freeText && it.canSpeak(e.name) }?.lineFor(e.name, e.defaultLine)
+        if (VehicleSpeechPolicy.outputFor(e) == SpeechOutput.NEUTRAL_CLIP) engine.line(e)
+        else activePack.takeIf { !it.freeText && it.canSpeak(e.name) }?.lineFor(e.name, e.defaultLine)
 
     /** 정차 중에만. READY인 팩을 고르고 저장한다. 못 쓰는 팩(INVALID·읽는 중)은 고를 수 없다. */
     override fun selectPack(id: String) {
@@ -465,21 +471,23 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             audio.abandonFocus()
             return
         }
-        // 안전 경고는 시스템 음성 경로만 사용하고 캐릭터 팩과 GLB 동작은 건드리지 않는다.
-        val useNeutralVoice = output == SpeechOutput.SYSTEM_TTS
+        // 중립 안전 문구는 승인된 WAV를 우선하고 GLB gesture는 실행하지 않는다.
+        val neutralDelivery = neutral || output == SpeechOutput.NEUTRAL_CLIP || output == SpeechOutput.SYSTEM_TTS
+        val useSystemTtsOnly = output == SpeechOutput.SYSTEM_TTS
         val seq = ++speakSeq
         // ReactionEngine이 곧 showAvatar를 부를 정차·비중립 경로에서만 실제 캐릭터 연출을 바꾼다.
-        if (!driving && !useNeutralVoice) {
+        if (!driving && output == SpeechOutput.CHARACTER_CLIP) {
             characterAnimation = activeCharacterPack?.animations?.forEvent(event.name) ?: "idle"
             syncCharacterOverlay()
         }
         val request = SpeakRequest(
             eventId = event.name,
             text = text,
-            neutral = useNeutralVoice,
+            // A neutral-clip event may use an approved WAV. Only SYSTEM_TTS forces the built-in voice.
+            neutral = useSystemTtsOnly,
             volume = volume,
-            pitch = if (useNeutralVoice) 1f else preset.pitch,
-            rate = if (useNeutralVoice) 1f else preset.rate,
+            pitch = if (neutralDelivery) 1f else preset.pitch,
+            rate = if (neutralDelivery) 1f else preset.rate,
         )
         packs.speak(
             request,

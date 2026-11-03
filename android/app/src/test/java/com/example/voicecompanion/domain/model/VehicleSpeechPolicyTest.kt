@@ -10,18 +10,22 @@ class VehicleSpeechPolicyTest {
     fun `every predefined vehicle event has one explicit output and safety never enters clip manifests`() {
         val clipEvents = VehicleSpeechPolicy.characterClipEventIds
 
-        assertEquals(VehicleEvent.entries.size, clipEvents.size + VehicleSpeechPolicy.safetyEvents.size)
+        assertEquals(VehicleEvent.entries.size, VehicleSpeechPolicy.voicePackClipEventIds.size)
         assertEquals(setOf(VehicleEvent.WARNING, VehicleEvent.ENERGY_URGENT), VehicleSpeechPolicy.safetyEvents)
-        assertFalse(clipEvents.contains(VehicleEvent.WARNING.name))
-        assertFalse(clipEvents.contains(VehicleEvent.ENERGY_URGENT.name))
+        assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains(VehicleEvent.WARNING.name))
+        assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains(VehicleEvent.ENERGY_URGENT.name))
+        assertTrue(VehicleSpeechPolicy.neutralClipEventIds.contains(VehicleEvent.WARNING.name))
+        assertTrue(VehicleSpeechPolicy.neutralClipEventIds.contains(VehicleEvent.ENERGY_URGENT.name))
         assertTrue(clipEvents.contains(VehicleEvent.ENERGY_SUFFICIENT.name))
         assertTrue(clipEvents.contains(VehicleEvent.ENERGY_ATTENTION.name))
     }
 
     @Test
-    fun `safety events use neutral system tts without character clips`() {
+    fun `safety events use neutral voice-pack clips without character gestures`() {
         VehicleSpeechPolicy.safetyEvents.forEach { event ->
-            assertEquals(SpeechOutput.SYSTEM_TTS, VehicleSpeechPolicy.outputFor(event))
+            assertEquals(SpeechOutput.NEUTRAL_CLIP, VehicleSpeechPolicy.outputFor(event))
+            assertTrue(VehicleSpeechPolicy.voicePackClipEventIds.contains(event.name))
+            assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains(event.name))
         }
     }
 
@@ -39,6 +43,6 @@ class VehicleSpeechPolicyTest {
         assertEquals(VehicleEvent.ENERGY_ATTENTION, EnergyBand.ATTENTION.toVehicleEvent())
         assertEquals(VehicleEvent.ENERGY_URGENT, EnergyBand.URGENT.toVehicleEvent())
         assertEquals(SpeechOutput.CHARACTER_CLIP, VehicleSpeechPolicy.outputFor(VehicleEvent.ENERGY_COMFORTABLE))
-        assertEquals(SpeechOutput.SYSTEM_TTS, VehicleSpeechPolicy.outputFor(VehicleEvent.ENERGY_URGENT))
+        assertEquals(SpeechOutput.NEUTRAL_CLIP, VehicleSpeechPolicy.outputFor(VehicleEvent.ENERGY_URGENT))
     }
 }
