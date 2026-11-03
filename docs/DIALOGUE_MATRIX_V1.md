@@ -47,7 +47,8 @@ Persona descriptions are inferred from the candidate display names because appro
 
 ## Safety and activation notes
 
-- WARNING uses the same neutral sentence for every candidate; it must have no gesture. ENERGY_LOW is also shared and neutral. The #14 app policy currently routes safety events through system TTS, while voice-pack-sdk#5 expects canonical clips; resolve this policy conflict before audio production.
+- WARNING uses the same neutral sentence for every candidate; it must have no gesture. ENERGY_LOW is also shared and neutral. The #14 app policy now prefers an approved neutral voice-pack clip and uses built-in system TTS only when that clip is unavailable; safety events remain excluded from character gestures.
+- The app currently emits ENERGY_URGENT while this matrix and voice-pack-sdk#5 use ENERGY_LOW. Add and validate this canonical event adapter before approving energy audio. Candidate voice packs do not yet contain approved canonical safety clips.
 - BRAKE and TURN are edge-triggered. MODE, TIRE, and WARNING remain inactive until their public Vehicle Service signal/capability is verified.
 - DOOR, WINDOW, AMBIENT_LIGHT, HVAC, and CHARGE are stationary-only. CHARGE start/completion remains inactive until a supported state-change signal exists.
 - WIPER remains silent by default until #12 and #14 explicitly authorize speech.
