@@ -7,25 +7,29 @@ import org.junit.Test
 
 class VehicleSpeechPolicyTest {
     @Test
-    fun `every predefined vehicle event has one explicit output and safety never enters clip manifests`() {
+    fun `every predefined vehicle event has an explicit output and safety never enters gesture manifests`() {
         val clipEvents = VehicleSpeechPolicy.characterClipEventIds
 
-        assertEquals(VehicleEvent.entries.size, VehicleSpeechPolicy.voicePackClipEventIds.size)
+        assertEquals(11, VehicleSpeechPolicy.voicePackClipEventIds.size)
         assertEquals(setOf(VehicleEvent.WARNING, VehicleEvent.ENERGY_URGENT), VehicleSpeechPolicy.safetyEvents)
-        assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains(VehicleEvent.WARNING.name))
-        assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains(VehicleEvent.ENERGY_URGENT.name))
-        assertTrue(VehicleSpeechPolicy.neutralClipEventIds.contains(VehicleEvent.WARNING.name))
-        assertTrue(VehicleSpeechPolicy.neutralClipEventIds.contains(VehicleEvent.ENERGY_URGENT.name))
-        assertTrue(clipEvents.contains(VehicleEvent.ENERGY_SUFFICIENT.name))
-        assertTrue(clipEvents.contains(VehicleEvent.ENERGY_ATTENTION.name))
+        assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains("WARNING"))
+        assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains("ENERGY_LOW"))
+        assertTrue(VehicleSpeechPolicy.neutralClipEventIds.contains("WARNING"))
+        assertTrue(VehicleSpeechPolicy.neutralClipEventIds.contains("ENERGY_LOW"))
+        assertTrue(clipEvents.contains("AMBIENT_LIGHT"))
+        assertTrue(clipEvents.contains("HVAC"))
+        assertTrue(clipEvents.contains("CHARGE"))
+        assertFalse(clipEvents.contains(VehicleEvent.ENERGY_SUFFICIENT.name))
+        assertFalse(clipEvents.contains(VehicleEvent.ENERGY_ATTENTION.name))
     }
 
     @Test
     fun `safety events use neutral voice-pack clips without character gestures`() {
         VehicleSpeechPolicy.safetyEvents.forEach { event ->
             assertEquals(SpeechOutput.NEUTRAL_CLIP, VehicleSpeechPolicy.outputFor(event))
-            assertTrue(VehicleSpeechPolicy.voicePackClipEventIds.contains(event.name))
-            assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains(event.name))
+            val canonicalId = VehicleSpeechPolicy.canonicalEventId(event)
+            assertTrue(VehicleSpeechPolicy.voicePackClipEventIds.contains(canonicalId))
+            assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains(canonicalId))
         }
     }
 
@@ -42,7 +46,20 @@ class VehicleSpeechPolicyTest {
         assertEquals(VehicleEvent.ENERGY_COMFORTABLE, EnergyBand.COMFORTABLE.toVehicleEvent())
         assertEquals(VehicleEvent.ENERGY_ATTENTION, EnergyBand.ATTENTION.toVehicleEvent())
         assertEquals(VehicleEvent.ENERGY_URGENT, EnergyBand.URGENT.toVehicleEvent())
-        assertEquals(SpeechOutput.CHARACTER_CLIP, VehicleSpeechPolicy.outputFor(VehicleEvent.ENERGY_COMFORTABLE))
+        assertEquals(SpeechOutput.SILENCE, VehicleSpeechPolicy.outputFor(VehicleEvent.ENERGY_COMFORTABLE))
         assertEquals(SpeechOutput.NEUTRAL_CLIP, VehicleSpeechPolicy.outputFor(VehicleEvent.ENERGY_URGENT))
+        assertEquals("ENERGY_LOW", VehicleSpeechPolicy.canonicalEventId(VehicleEvent.ENERGY_URGENT))
+    }
+
+    @Test
+    fun `runtime event names map to canonical pack event ids`() {
+        assertEquals("AMBIENT_LIGHT", VehicleSpeechPolicy.canonicalEventId(VehicleEvent.LIGHT))
+        assertEquals("HVAC", VehicleSpeechPolicy.canonicalEventId(VehicleEvent.COMFORT))
+        assertEquals("CHARGE", VehicleSpeechPolicy.canonicalEventId(VehicleEvent.CHARGE_PORT))
+        assertEquals("ENERGY_LOW", VehicleSpeechPolicy.canonicalEventId(VehicleEvent.ENERGY_URGENT))
+        assertEquals(
+            setOf("BRAKE", "TURN", "MODE", "TIRE", "WARNING", "DOOR", "WINDOW", "AMBIENT_LIGHT", "HVAC", "CHARGE", "ENERGY_LOW"),
+            VehicleSpeechPolicy.voicePackClipEventIds,
+        )
     }
 }

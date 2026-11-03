@@ -49,15 +49,25 @@ object VehicleSpeechPolicy {
         VehicleEvent.WINDOW to SpeechOutput.CHARACTER_CLIP,
         VehicleEvent.DOOR to SpeechOutput.CHARACTER_CLIP,
         VehicleEvent.COMFORT to SpeechOutput.CHARACTER_CLIP,
-        VehicleEvent.ENERGY_SUFFICIENT to SpeechOutput.CHARACTER_CLIP,
-        VehicleEvent.ENERGY_COMFORTABLE to SpeechOutput.CHARACTER_CLIP,
-        VehicleEvent.ENERGY_ATTENTION to SpeechOutput.CHARACTER_CLIP,
+        // The v1 release matrix has one canonical ENERGY_LOW clip; other energy bands stay silent.
+        VehicleEvent.ENERGY_SUFFICIENT to SpeechOutput.SILENCE,
+        VehicleEvent.ENERGY_COMFORTABLE to SpeechOutput.SILENCE,
+        VehicleEvent.ENERGY_ATTENTION to SpeechOutput.SILENCE,
         VehicleEvent.ENERGY_URGENT to SpeechOutput.NEUTRAL_CLIP,
         VehicleEvent.CHARGE_PORT to SpeechOutput.CHARACTER_CLIP,
     )
 
     /** 일반 이벤트는 캐릭터 클립을 우선 사용한다. 안전 이벤트는 중립 문구의 팩 클립을 우선한다. */
     fun outputFor(event: VehicleEvent): SpeechOutput = eventOutputs.getValue(event)
+
+    /** Runtime names adapt to the canonical IDs consumed by voice and character manifests. */
+    fun canonicalEventId(event: VehicleEvent): String = when (event) {
+        VehicleEvent.LIGHT -> "AMBIENT_LIGHT"
+        VehicleEvent.COMFORT -> "HVAC"
+        VehicleEvent.CHARGE_PORT -> "CHARGE"
+        VehicleEvent.ENERGY_URGENT -> "ENERGY_LOW"
+        else -> event.name
+    }
 
     /** 실시간 수치·진단·지원하지 않는 콘텐츠는 사용자 요청형 TTS 기능이 생기기 전까지 말하지 않는다. */
     fun outputFor(content: SpeechContent): SpeechOutput = when (content) {
@@ -66,11 +76,11 @@ object VehicleSpeechPolicy {
     }
 
     val characterClipEventIds: Set<String>
-        get() = eventOutputs.filterValues { it == SpeechOutput.CHARACTER_CLIP }.keys.map { it.name }.toSet()
+        get() = eventOutputs.filterValues { it == SpeechOutput.CHARACTER_CLIP }.keys.map(::canonicalEventId).toSet()
 
     /** 안전 문구도 WAV로 제공할 수 있지만 캐릭터 gesture는 허용하지 않는다. */
     val neutralClipEventIds: Set<String>
-        get() = eventOutputs.filterValues { it == SpeechOutput.NEUTRAL_CLIP }.keys.map { it.name }.toSet()
+        get() = eventOutputs.filterValues { it == SpeechOutput.NEUTRAL_CLIP }.keys.map(::canonicalEventId).toSet()
 
     val voicePackClipEventIds: Set<String>
         get() = characterClipEventIds + neutralClipEventIds
