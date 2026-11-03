@@ -4,20 +4,20 @@ This document is a content draft for issue #16. It contains one row per candidat
 
 ## Roster and ID status
 
-The ten candidates and voicePackId values come from the current inventory quoted in issue #16 and voice-pack-sdk#5. Candidate characterId values are inferred by removing .voicedesign from each voicePackId. This is a working convention only. Issue #3 is still open, so none of these entries is asserted to be releaseEligible; confirm inclusion and IDs against the approved roster before treating this matrix as canonical.
+The ten candidate names and voicePackId values come from issue #16 and voice-pack-sdk#5. Candidate characterIds were matched by display name to the local character-pack-sdk candidate manifests. Those manifests currently have voicePackId=null, commercialUse=false, and a pending license, so this name match is not a release pairing. Issue #3 is still open; none of these entries is asserted to be releaseEligible.
 
 | Candidate characterId | Display name | Current voicePackId |
 | --- | --- | --- |
-| ai.cooldere-vehicle-os | 쿨데레 차량 OS | ai.cooldere-vehicle-os.voicedesign |
-| ai.clumsy-junior | 덜렁이 신입 후배 | ai.clumsy-junior.voicedesign |
-| ai.stoic-guardian-knight | 과묵한 수호 기사 | ai.stoic-guardian-knight.voicedesign |
-| ai.tsundere-lady | 츤데레 아가씨 | ai.tsundere-lady.voicedesign |
-| ai.chuunibyo-demon-lord | 중2병 마왕 | ai.chuunibyo-demon-lord.voicedesign |
-| ai.gentle-older-sister | 다정한 연상 누나 | ai.gentle-older-sister.voicedesign |
-| ai.apprentice-magical-girl | 견습 마법소녀 | ai.apprentice-magical-girl.voicedesign |
-| ai.car-geek-mechanic | 차덕 정비 소녀 | ai.car-geek-mechanic.voicedesign |
-| ai.fox-spirit | 여우 신령 | ai.fox-spirit.voicedesign |
-| ai.in-car-streamer | 차 안 버튜버 | ai.in-car-streamer.voicedesign |
+| ai.meshy.kuudere-os | 쿨데레 차량 OS | ai.cooldere-vehicle-os.voicedesign |
+| ai.meshy.dojikko | 덜렁이 신입 후배 | ai.clumsy-junior.voicedesign |
+| ai.meshy.knight | 과묵한 수호 기사 | ai.stoic-guardian-knight.voicedesign |
+| ai.meshy.tsundere | 츤데레 아가씨 | ai.tsundere-lady.voicedesign |
+| ai.meshy.chuuni | 중2병 마왕 | ai.chuunibyo-demon-lord.voicedesign |
+| ai.meshy.onee | 다정한 연상 누나 | ai.gentle-older-sister.voicedesign |
+| ai.meshy.magical | 견습 마법소녀 | ai.apprentice-magical-girl.voicedesign |
+| ai.meshy.mechanic | 차덕 정비 소녀 | ai.car-geek-mechanic.voicedesign |
+| ai.meshy.fox | 여우 신령 | ai.fox-spirit.voicedesign |
+| ai.meshy.vtuber | 차 안 버튜버 | ai.in-car-streamer.voicedesign |
 
 ## Event and runtime alignment
 
