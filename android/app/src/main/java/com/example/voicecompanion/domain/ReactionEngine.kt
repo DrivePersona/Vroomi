@@ -2,7 +2,9 @@ package com.example.voicecompanion.domain
 
 import com.example.voicecompanion.domain.model.DropReason
 import com.example.voicecompanion.domain.model.LogEntry
+import com.example.voicecompanion.domain.model.SpeechOutput
 import com.example.voicecompanion.domain.model.VehicleEvent
+import com.example.voicecompanion.domain.model.VehicleSpeechPolicy
 
 // 보이스 컴패니언 반응 엔진: 차량 이벤트 in → 음성·아바타 out.
 // 안드로이드도 Pleos SDK도 모른다(웹 시뮬레이터 engine.js의 이식). 바깥 세계는 Platform으로만 만난다.
@@ -58,7 +60,12 @@ class ReactionEngine(
             if (wait > 0) platform.log(LogEntry.Drop(e, DropReason.COOLDOWN, waitMs = wait))
             wait <= 0
         }
-        val sorted = ready.sortedBy { it.rank } // 안정 정렬: 동률이면 먼저 온 쪽
+        val speakable = ready.filter { event ->
+            val allowed = VehicleSpeechPolicy.outputFor(event) != SpeechOutput.SILENCE
+            if (!allowed) drop(event, DropReason.POLICY_SILENT)
+            allowed
+        }
+        val sorted = speakable.sortedBy { it.rank } // 안정 정렬: 동률이면 먼저 온 쪽
         val win = sorted.firstOrNull() ?: return
         // 밀려난 이벤트는 버린다. 늦게 말하면 의미가 없다(§6 반응 큐).
         sorted.drop(1).forEach { platform.log(LogEntry.Drop(it, DropReason.PRIORITY, by = win)) }
@@ -66,14 +73,16 @@ class ReactionEngine(
     }
 
     private fun react(e: VehicleEvent, t: Long) {
+        val output = VehicleSpeechPolicy.outputFor(e)
+        if (output == SpeechOutput.SILENCE) return drop(e, DropReason.POLICY_SILENT)
         if (driving && !voiceWhileDriving) return drop(e, DropReason.DRIVING_SILENT)
         if (!platform.requestFocus()) return drop(e, DropReason.FOCUS)
         last[e] = t // 실제로 말할 때만 쿨다운을 쓴다
         val text = line(e)
         // 여기서 아는 건 '요청함'까지. 실제로 재생됐는지는 플랫폼이 따로 알려 준다.
         platform.log(LogEntry.Speak(e, text))
-        platform.speak(e, text, e.neutral, maxVolume)
-        if (!driving && !e.neutral) platform.showAvatar(e.face, text)
+        platform.speak(e, text, output == SpeechOutput.SYSTEM_TTS, maxVolume)
+        if (!driving && output == SpeechOutput.CHARACTER_CLIP) platform.showAvatar(e.face, text)
     }
 
     private fun drop(e: VehicleEvent, why: DropReason) = platform.log(LogEntry.Drop(e, why))

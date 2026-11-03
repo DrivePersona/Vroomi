@@ -31,7 +31,46 @@ enum class VehicleEvent(
     CHARGE_PORT("충전구 상태", Rank.STATUS, 10_000, "🔌", "충전구 상태가 바뀌었어."),
 }
 
-enum class DropReason { COOLDOWN, PRIORITY, FOCUS, DRIVING_SILENT }
+enum class DropReason { COOLDOWN, PRIORITY, FOCUS, DRIVING_SILENT, POLICY_SILENT }
+
+/** 차량 이벤트가 어떤 종류의 음성 경로를 사용할 수 있는지 고정한 정책 테이블. */
+enum class SpeechOutput { CHARACTER_CLIP, SYSTEM_TTS, SILENCE }
+
+enum class SpeechContent { PREDEFINED_EVENT, EXACT_VALUE, DIAGNOSTIC, UNSUPPORTED }
+
+object VehicleSpeechPolicy {
+    private val eventOutputs = mapOf(
+        VehicleEvent.BRAKE to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.TURN to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.MODE to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.TIRE to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.WARNING to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.LIGHT to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.WINDOW to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.DOOR to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.COMFORT to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.ENERGY_SUFFICIENT to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.ENERGY_COMFORTABLE to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.ENERGY_ATTENTION to SpeechOutput.CHARACTER_CLIP,
+        VehicleEvent.ENERGY_URGENT to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.CHARGE_PORT to SpeechOutput.CHARACTER_CLIP,
+    )
+
+    /** 미리 정한 차량 이벤트는 클립 팩을 우선 사용하고, 기존 엔진 규칙에 따라 기본 TTS가 대체할 수 있다. */
+    fun outputFor(event: VehicleEvent): SpeechOutput = eventOutputs.getValue(event)
+
+    /** 실시간 수치·진단·지원하지 않는 콘텐츠는 사용자 요청형 TTS 기능이 생기기 전까지 말하지 않는다. */
+    fun outputFor(content: SpeechContent): SpeechOutput = when (content) {
+        SpeechContent.PREDEFINED_EVENT -> SpeechOutput.CHARACTER_CLIP
+        SpeechContent.EXACT_VALUE, SpeechContent.DIAGNOSTIC, SpeechContent.UNSUPPORTED -> SpeechOutput.SILENCE
+    }
+
+    val characterClipEventIds: Set<String>
+        get() = eventOutputs.filterValues { it == SpeechOutput.CHARACTER_CLIP }.keys.map { it.name }.toSet()
+
+    val safetyEvents: Set<VehicleEvent>
+        get() = eventOutputs.filterValues { it == SpeechOutput.SYSTEM_TTS }.keys
+}
 
 val VehicleEvent.isEnergyEvent: Boolean
     get() = name.startsWith("ENERGY_")

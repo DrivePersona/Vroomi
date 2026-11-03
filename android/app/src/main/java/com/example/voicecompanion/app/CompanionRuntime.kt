@@ -14,6 +14,8 @@ import com.example.voicecompanion.domain.model.VehicleDataCatalog
 import com.example.voicecompanion.domain.model.VehicleDataState
 import com.example.voicecompanion.domain.model.VehicleEnergyProfile
 import com.example.voicecompanion.domain.model.VehicleAvailability
+import com.example.voicecompanion.domain.model.VehicleSpeechPolicy
+import com.example.voicecompanion.domain.model.SpeechOutput
 import com.example.voicecompanion.domain.model.isEnergyEvent
 import com.example.voicecompanion.app.model.CompanionUiState
 import com.example.voicecompanion.app.model.ReactionLogItem
@@ -107,7 +109,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private val repository = PackRepository(
         source = AssetPackSource(app.assets, "voicepacks"),
         factories = mapOf(ClipPackFactory.KIND to ClipPackFactory(newOutput = audio::newPcmOutput)),
-        allowedEvents = VehicleEvent.entries.filter { !it.neutral }.map { it.name }.toSet(), // 중립 음성 이벤트는 팩을 쓰지 않는다
+        allowedEvents = VehicleSpeechPolicy.characterClipEventIds, // 시스템 TTS 안전 안내는 음성팩 clip 대상이 아니다
         appVersion = app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode,
     )
     // 캐릭터 팩(GLB·2D 스프라이트)은 음성 팩과 완전히 별개다. 표현 파일·선택·검증만 맡고 음성 경로에는 관여하지 않는다.
@@ -116,7 +118,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private val characters = CharacterPackSelector { installedCharacters }
     private val characterRepository = CharacterPackRepository(
         source = AssetCharacterPackSource(app.assets, "characterpacks"),
-        allowedEvents = VehicleEvent.entries.filter { !it.neutral }.map { it.name }.toSet(),
+        allowedEvents = VehicleSpeechPolicy.characterClipEventIds,
         appVersion = app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode,
     )
     private var speakSeq = 0 // 가장 최근 말하기 요청의 번호. 늦게 온 이전 요청의 done이 새 요청의 포커스를 놓지 않게 한다
@@ -424,7 +426,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (driving || pack.state !is PackState.Ready) return
         val greeting = pack.greeting()
         val vehiclePreview = VehicleEvent.entries.firstOrNull {
-            !it.neutral && (!it.isEnergyEvent || energyProfileAvailable()) && pack.canSpeak(it.name)
+            VehicleSpeechPolicy.outputFor(it) == SpeechOutput.CHARACTER_CLIP &&
+                (!it.isEnergyEvent || energyProfileAvailable()) && pack.canSpeak(it.name)
         }
         if (greeting == null && vehiclePreview == null) return
         val eventId = greeting?.eventId ?: checkNotNull(vehiclePreview).name
@@ -456,19 +459,27 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     // ---- Platform: 엔진이 바깥 세계와 만나는 곳 ----
     override fun speak(event: VehicleEvent, text: String, neutral: Boolean, volume: Float) {
         val row = lastSpeakRow[event] // 엔진이 speak 직전에 log했으니 방금 그 행이다
+        val output = VehicleSpeechPolicy.outputFor(event)
+        if (output == SpeechOutput.SILENCE) {
+            row?.note = "음성 정책상 무음"
+            audio.abandonFocus()
+            return
+        }
+        // 안전 경고는 시스템 음성 경로만 사용하고 캐릭터 팩과 GLB 동작은 건드리지 않는다.
+        val useNeutralVoice = output == SpeechOutput.SYSTEM_TTS
         val seq = ++speakSeq
         // ReactionEngine이 곧 showAvatar를 부를 정차·비중립 경로에서만 실제 캐릭터 연출을 바꾼다.
-        if (!driving && !neutral) {
+        if (!driving && !useNeutralVoice) {
             characterAnimation = activeCharacterPack?.animations?.forEvent(event.name) ?: "idle"
             syncCharacterOverlay()
         }
         val request = SpeakRequest(
             eventId = event.name,
             text = text,
-            neutral = neutral,
+            neutral = useNeutralVoice,
             volume = volume,
-            pitch = if (neutral) 1f else preset.pitch,
-            rate = if (neutral) 1f else preset.rate,
+            pitch = if (useNeutralVoice) 1f else preset.pitch,
+            rate = if (useNeutralVoice) 1f else preset.rate,
         )
         packs.speak(
             request,
@@ -505,6 +516,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 DropReason.PRIORITY -> "더 급한 반응(${entry.by?.label})이 먼저였어요"
                 DropReason.FOCUS -> "오디오 포커스를 잃은 상태예요 (내비 등이 말하는 중)"
                 DropReason.DRIVING_SILENT -> "주행 중 음성이 불허된 상태예요"
+                DropReason.POLICY_SILENT -> "음성 정책상 무음이에요"
             }
         }
         val row = LogRow(clock.format(Date()), "${entry.event.label} → $what")
