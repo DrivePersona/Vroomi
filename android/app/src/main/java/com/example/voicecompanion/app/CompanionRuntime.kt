@@ -302,7 +302,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (VehicleSpeechPolicy.outputFor(e) == SpeechOutput.NEUTRAL_CLIP) return
         val t = text.take(MAX_LINE)
         typedLines[e] = t
-        engine.setLine(e, packs.lineFor(e.name, t))
+        engine.setLine(e, packs.lineFor(VehicleSpeechPolicy.canonicalEventId(e), t))
         prefs.edit().putString("line.${e.name}", t).apply()
     }
 
@@ -311,7 +311,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         VehicleEvent.entries.forEach { e ->
             val fallback = if (VehicleSpeechPolicy.outputFor(e) == SpeechOutput.NEUTRAL_CLIP) e.defaultLine
             else typedLines[e] ?: e.defaultLine
-            engine.setLine(e, packs.lineFor(e.name, fallback))
+            engine.setLine(e, packs.lineFor(VehicleSpeechPolicy.canonicalEventId(e), fallback))
         }
     }
 
@@ -409,7 +409,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     /** 활성 팩이 이 반응의 대사를 정해 두었으면 그 대사(자막). 아니면 null — 사용자가 바꿀 수 있다. */
     fun fixedLine(e: VehicleEvent): String? =
         if (VehicleSpeechPolicy.outputFor(e) == SpeechOutput.NEUTRAL_CLIP) engine.line(e)
-        else activePack.takeIf { !it.freeText && it.canSpeak(e.name) }?.lineFor(e.name, e.defaultLine)
+        else activePack.takeIf { !it.freeText && it.canSpeak(VehicleSpeechPolicy.canonicalEventId(e)) }
+            ?.lineFor(VehicleSpeechPolicy.canonicalEventId(e), e.defaultLine)
 
     /** 정차 중에만. READY인 팩을 고르고 저장한다. 못 쓰는 팩(INVALID·읽는 중)은 고를 수 없다. */
     override fun selectPack(id: String) {
@@ -433,12 +434,13 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         val greeting = pack.greeting()
         val vehiclePreview = VehicleEvent.entries.firstOrNull {
             VehicleSpeechPolicy.outputFor(it) == SpeechOutput.CHARACTER_CLIP &&
-                (!it.isEnergyEvent || energyProfileAvailable()) && pack.canSpeak(it.name)
+                (!it.isEnergyEvent || energyProfileAvailable()) &&
+                pack.canSpeak(VehicleSpeechPolicy.canonicalEventId(it))
         }
         if (greeting == null && vehiclePreview == null) return
-        val eventId = greeting?.eventId ?: checkNotNull(vehiclePreview).name
+        val eventId = greeting?.eventId ?: VehicleSpeechPolicy.canonicalEventId(checkNotNull(vehiclePreview))
         val text = greeting?.text ?: checkNotNull(vehiclePreview).let { event ->
-            pack.lineFor(event.name, typedLines[event] ?: event.defaultLine)
+            pack.lineFor(eventId, typedLines[event] ?: event.defaultLine)
         }
         val stamp = clock.format(Date()) // 반응 기록처럼 시각을 붙인다. 지난 결과(특히 실패)가 지금 상태처럼 읽히면 안 된다
         val head = "$stamp  ${if (greeting != null) "인사말" else "미리듣기"} 요청 · ${pack.name} \"$text\""
@@ -477,11 +479,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         val seq = ++speakSeq
         // ReactionEngine이 곧 showAvatar를 부를 정차·비중립 경로에서만 실제 캐릭터 연출을 바꾼다.
         if (!driving && output == SpeechOutput.CHARACTER_CLIP) {
-            characterAnimation = activeCharacterPack?.animations?.forEvent(event.name) ?: "idle"
+            characterAnimation = activeCharacterPack?.animations?.forEvent(VehicleSpeechPolicy.canonicalEventId(event)) ?: "idle"
             syncCharacterOverlay()
         }
         val request = SpeakRequest(
-            eventId = event.name,
+            eventId = VehicleSpeechPolicy.canonicalEventId(event),
             text = text,
             // A neutral-clip event may use an approved WAV. Only SYSTEM_TTS forces the built-in voice.
             neutral = useSystemTtsOnly,
