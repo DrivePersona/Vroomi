@@ -29,6 +29,7 @@ class PleosVehicleInputRepository(
             context = context,
             onEvent = { onInput(VehicleInput.Event(it)) },
             onStatus = { onInput(VehicleInput.Status(VehicleInput.Source.PLEOS_VEHICLE, it)) },
+            onCatalog = { onInput(VehicleInput.Catalog(it)) },
         ).also { it.start() }
     }
 

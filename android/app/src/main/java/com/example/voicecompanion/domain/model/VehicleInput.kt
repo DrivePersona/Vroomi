@@ -5,6 +5,7 @@ sealed interface VehicleInput {
     data class Event(val event: VehicleEvent) : VehicleInput
     data class Driving(val isDriving: Boolean) : VehicleInput
     data class Status(val source: Source, val message: String) : VehicleInput
+    data class Catalog(val states: List<VehicleDataState>) : VehicleInput
 
     enum class Source { PLEOS_VEHICLE, CAR_UX }
 }

@@ -36,12 +36,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.example.voicecompanion.BuildConfig
 import com.example.voicecompanion.app.model.CompanionUiState
 import com.example.voicecompanion.characterpack.model.CharacterPack
 import com.example.voicecompanion.characterpack.model.CharacterPackState
 import com.example.voicecompanion.data.audio.VoicePreset
 import com.example.voicecompanion.domain.model.VehicleEvent
+import com.example.voicecompanion.domain.model.VehicleAvailability
 import com.example.voicecompanion.ui.component.CompanionBadge
 import com.example.voicecompanion.ui.component.CompanionBadgeTone
 import com.example.voicecompanion.ui.component.CompanionCard
@@ -212,6 +216,34 @@ private fun ScreenCard(state: CompanionUiState) {
         StatusMetric("음성 합성", state.ttsStatus)
         state.packStatus?.let { StatusMetric("음성 팩", it) }
         state.characterPackNotice?.let { StatusMetric("캐릭터 팩", it) }
+        if (BuildConfig.DEBUG) VehicleDataDebugCard(state)
+    }
+}
+
+@Composable
+private fun VehicleDataDebugCard(state: CompanionUiState) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Vehicle 데이터 디버그", style = MaterialTheme.typography.titleSmall)
+        state.vehicleData.forEach { item ->
+            val timestamp = item.updatedAtEpochMs?.let {
+                SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(it))
+            }
+            val availability = when (item.availability) {
+                VehicleAvailability.CHECKING -> "확인 중"
+                VehicleAvailability.ACTIVE -> "수신 중"
+                VehicleAvailability.UNSUPPORTED -> "미지원"
+                VehicleAvailability.ERROR -> "오류"
+            }
+            Text(
+                "${item.definition.displayName} · $availability${item.value?.let { " · $it" } ?: ""}" +
+                    (timestamp?.let { " · $it" } ?: "") +
+                    "\n${item.definition.capability} · ${item.definition.permission}" +
+                    (item.detail?.let { "\n$it" } ?: ""),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (item.availability == VehicleAvailability.ERROR) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
