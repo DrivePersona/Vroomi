@@ -96,7 +96,7 @@ private fun CompanionContent(state: CompanionUiState, onTouch: (CompanionTouch) 
                         Modifier.weight(1f).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(CompanionTokens.SectionGap),
                     ) {
-                        ScreenCard(state)
+                        ScreenCard(state, onTouch)
                         CustomCard(state, onTouch)
                     }
                     Column(
@@ -117,7 +117,7 @@ private fun CompanionContent(state: CompanionUiState, onTouch: (CompanionTouch) 
                 verticalArrangement = Arrangement.spacedBy(CompanionTokens.SectionGap),
             ) {
                 CompanionTopHeader(state)
-                ScreenCard(state)
+                ScreenCard(state, onTouch)
                 // 폰에서는 실제 반응 확인과 기록을 상세 편집보다 먼저 배치한다.
                 if (BuildConfig.DEBUG) SimulatorCard(state, onTouch)
                 LogCard(state, onTouch)
@@ -194,7 +194,7 @@ private fun DrivingContent(state: CompanionUiState, onTouch: (CompanionTouch) ->
 
 /** 차량 설정 화면. 3D 캐릭터는 앱 카드가 아니라 WindowManager 오버레이에서만 보인다. */
 @Composable
-private fun ScreenCard(state: CompanionUiState) {
+private fun ScreenCard(state: CompanionUiState, onTouch: (CompanionTouch) -> Unit) {
     val title = when {
         !state.driving -> "정차 중이에요"
         state.voiceWhileDriving -> "목소리로만 알려드릴게요"
@@ -211,6 +211,8 @@ private fun ScreenCard(state: CompanionUiState) {
             val character = state.activeCharacterPack
             StatusMetric("VR 캐릭터", character?.name ?: "선택한 캐릭터가 없어요")
             StatusMetric("VR 표시", state.vrOverlayStatus)
+            // 캐릭터 선택은 상태 카드에서 바로 이어져야 한다. 개발용 Vehicle 디버그 로그보다 위에 둔다.
+            CharacterPackPicker(state, onTouch)
         }
         StatusMetric("차량 서비스", state.pleosStatus)
         StatusMetric("주행 규제", state.carUxStatus)
@@ -341,8 +343,6 @@ private fun CustomCard(state: CompanionUiState, onTouch: (CompanionTouch) -> Uni
             )
         }
 
-        CharacterPackPicker(state, onTouch)
-
         Text("기본 목소리", style = MaterialTheme.typography.titleSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             VoicePreset.entries.forEach { preset ->
@@ -370,6 +370,8 @@ private fun CharacterPackPicker(state: CompanionUiState, onTouch: (CompanionTouc
         HelperText("캐릭터 팩을 읽는 중이에요…")
     } else if (state.characterPackList.isEmpty()) {
         HelperText("출시 로스터의 음성·권리·표현 검증을 통과한 캐릭터가 없어 VR 표시를 사용할 수 없어요.")
+    } else if (BuildConfig.DEBUG && state.characterPackList.any { it.info?.voicePackId == null }) {
+        HelperText("내부 후보 미리보기예요. 음성 팩과 상업 이용 승인을 마치기 전까지 출시 목록에는 들어가지 않아요.")
     }
     Text("VR 표시", style = MaterialTheme.typography.titleSmall)
     SwitchRow(
@@ -408,6 +410,7 @@ private fun CharacterPackRow(state: CompanionUiState, pack: CharacterPack, onTou
 
 private fun characterPackStateText(pack: CharacterPack): String = when (val state = pack.state) {
     is CharacterPackState.Ready -> when {
+        pack.model != null && pack.info?.voicePackId == null -> "내부 미리보기 · GLB 3D 모델"
         pack.model != null -> "준비됨 · GLB 3D 모델"
         pack.sprite != null -> "준비됨 · 2D 애니메이션 스프라이트"
         else -> "사용할 수 없어요 · 표현 파일이 없어요"

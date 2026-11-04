@@ -15,3 +15,5 @@ The app's `:app:testInternalDebugUnitTest` suite exercises missing packs/IDs, in
 Add an entry only after reviewing the character and voice IDs, licenses, consent, commercial use, 13-slot voice coverage, and intended release tier. Keep `requiredGestureEventIds` explicit for VR entries; voice-only entries use an empty array and set `vrEligible` to false. Include the evidence and review rationale in the pull request. Do not promote candidates based on display-name matches.
 
 The current roster is intentionally empty. The local candidate characters have no approved voice pairing and/or commercial-use approval, and the candidate voice packs do not have the full v1 dialogue matrix. `dev.mori` also has no voice pairing. No local candidate is release-eligible today.
+
+Internal debug builds may show the loaded candidate GLB packs when the roster is empty. Those rows are explicitly labelled "내부 미리보기" and use the platform voice only; they are not release entries and are never enabled in a release build with a populated roster.
