@@ -8,8 +8,7 @@ import com.example.voicecompanion.ui.event.CompanionUiEffect
 internal fun routeTouch(runtime: CompanionUiRuntime, touch: CompanionTouch): CompanionUiEffect? = when (touch) {
     is CompanionTouch.LineChanged -> { runtime.setLine(touch.event, touch.text); null }
     is CompanionTouch.PresetSelected -> { runtime.choosePreset(touch.preset); null }
-    is CompanionTouch.PackSelected -> { runtime.selectPack(touch.id); null }
-    is CompanionTouch.PackPreviewRequested -> { runtime.previewPack(touch.pack); null }
+    is CompanionTouch.DialoguePreviewRequested -> { runtime.previewDialogue(touch.eventId, touch.variantIndex); null }
     is CompanionTouch.CharacterPackSelected -> { runtime.selectCharacterPack(touch.id); null }
     is CompanionTouch.VrEnabledChanged -> { runtime.changeVrEnabled(touch.enabled); null }
     CompanionTouch.VrPermissionRequested -> { runtime.openVrOverlayPermissionSettings(); null }

@@ -3,7 +3,9 @@ package com.example.voicecompanion.app.model
 import com.example.voicecompanion.data.audio.VoicePreset
 import com.example.voicecompanion.domain.model.VehicleEvent
 import com.example.voicecompanion.domain.model.VehicleDataState
-import com.example.voicecompanion.voicepack.domain.VoicePack
+import com.example.voicecompanion.domain.model.VehicleAvailability
+import com.example.voicecompanion.domain.model.VehicleEnergyProfile
+import com.example.voicecompanion.domain.model.isEnergyEvent
 import com.example.voicecompanion.characterpack.model.CharacterPack
 
 /** 화면이 렌더링하는 읽기 전용 상태. UI는 Runtime의 가변 상태를 직접 읽지 않는다. */
@@ -18,11 +20,8 @@ data class CompanionUiState(
     val ttsStatus: String,
     val typedLines: Map<VehicleEvent, String>,
     val logs: List<ReactionLogItem>,
-    val packList: List<VoicePack>,
-    val activePack: VoicePack,
-    val packsLoaded: Boolean,
     val packStatus: String?,
-    val previewStatus: String,
+    val dialogueRows: List<VoiceDialogueRow>,
     val fixedLines: Map<VehicleEvent, String?>,
     val characterPackList: List<CharacterPack>,
     val activeCharacterPack: CharacterPack?,
@@ -34,6 +33,16 @@ data class CompanionUiState(
     val canStartVr: Boolean,
 ) {
     fun fixedLine(event: VehicleEvent): String? = fixedLines[event]
+
+    val energyProfileAvailable: Boolean
+        get() = vehicleData.any {
+            it.definition.dataKey == "vehicle-energy-profile" &&
+                it.availability == VehicleAvailability.ACTIVE &&
+                it.value?.let { value -> runCatching { VehicleEnergyProfile.valueOf(value) }.getOrNull() }?.let { it != VehicleEnergyProfile.UNAVAILABLE } == true
+        }
+
+    val availableEvents: List<VehicleEvent>
+        get() = VehicleEvent.entries.filter { !it.isEnergyEvent || energyProfileAvailable }
 }
 
 data class ReactionLogItem(
@@ -41,3 +50,11 @@ data class ReactionLogItem(
     val text: String,
     val note: String,
 )
+
+data class VoiceDialogueRow(
+    val eventId: String,
+    val label: String,
+    val variants: List<VoiceDialogueVariant>,
+)
+
+data class VoiceDialogueVariant(val index: Int, val text: String)

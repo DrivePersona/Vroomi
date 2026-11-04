@@ -27,7 +27,7 @@ class PleosVehicleInputRepository(
         ).also { it.start() }
         pleos = PleosVehicleSource(
             context = context,
-            onEvent = { onInput(VehicleInput.Event(it)) },
+            onEvent = { event, allowWhileDriving -> onInput(VehicleInput.Event(event, allowWhileDriving)) },
             onStatus = { onInput(VehicleInput.Status(VehicleInput.Source.PLEOS_VEHICLE, it)) },
             onCatalog = { onInput(VehicleInput.Catalog(it)) },
         ).also { it.start() }
