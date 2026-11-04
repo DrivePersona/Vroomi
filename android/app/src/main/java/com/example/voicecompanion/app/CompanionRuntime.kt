@@ -19,7 +19,10 @@ import com.example.voicecompanion.domain.model.SpeechOutput
 import com.example.voicecompanion.domain.model.isEnergyEvent
 import com.example.voicecompanion.app.model.CompanionUiState
 import com.example.voicecompanion.app.model.ReactionLogItem
+import com.example.voicecompanion.app.model.VoiceDialogueRow
 import com.example.voicecompanion.app.release.ReleaseRoster
+import com.example.voicecompanion.app.release.CharacterVoiceBinding
+import com.example.voicecompanion.app.release.CharacterDialogueMatrix
 import com.example.voicecompanion.ui.overlay.CharacterOverlayHost
 import com.example.voicecompanion.ui.overlay.OverlayShowResult
 import com.example.voicecompanion.ui.overlay.VrOverlayInput
@@ -27,11 +30,10 @@ import com.example.voicecompanion.ui.overlay.VrOverlayPolicy
 import com.example.voicecompanion.voicepack.data.AssetPackSource
 import com.example.voicecompanion.voicepack.data.PackRepository
 import com.example.voicecompanion.voicepack.domain.ClipPackFactory
-import com.example.voicecompanion.voicepack.domain.PackKind
 import com.example.voicecompanion.voicepack.domain.PackSelector
-import com.example.voicecompanion.voicepack.domain.PackState
 import com.example.voicecompanion.voicepack.domain.SpeakRequest
 import com.example.voicecompanion.voicepack.domain.VoicePack
+import com.example.voicecompanion.voicepack.domain.GREETING_EVENT
 import com.example.voicecompanion.characterpack.data.AssetCharacterPackSource
 import com.example.voicecompanion.characterpack.data.CharacterPackRepository
 import com.example.voicecompanion.characterpack.domain.CharacterPackSelector
@@ -129,19 +131,12 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         appVersion = app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode,
     )
     private var speakSeq = 0 // 가장 최근 말하기 요청의 번호. 늦게 온 이전 요청의 done이 새 요청의 포커스를 놓지 않게 한다
-    private var previewSeq = -1 // 가장 최근 미리듣기 요청의 번호. 주행이 시작될 때 그 소리가 아직 최근 요청이면 끊는다
+    private var previewSeq = -1 // 주행 시작 시 진행 중인 대사 미리듣기를 끊는다
 
-    // 음성 팩 화면 상태. 선택기(packs)는 Compose가 모르는 일반 객체라서, 바뀔 때마다 refreshPacks()가 여기로 옮겨 적는다.
-    var packList by mutableStateOf<List<VoicePack>>(listOf(audio.builtinPack))
+    // 선택된 캐릭터의 manifest voicePackId가 음성 팩을 자동으로 결정한다.
+    var activePack by mutableStateOf(audio.builtinPack)
         private set
-    var activePack by mutableStateOf(audio.builtinPack) // 지금 말하고 대사를 정하는 팩(고른 팩이 못 쓰는 상태면 기본 음성)
-        private set
-    var packsLoaded by mutableStateOf(false) // 설치된 팩 읽기가 끝났나(그 전엔 기본 음성만 보인다)
-        private set
-    var packNotice by mutableStateOf<String?>(null) // 저장해 둔 팩을 못 써서 기본 음성으로 말하는 이유
-        private set
-    var previewStatus by mutableStateOf("")
-        private set
+    private var packsLoaded = false
 
     // 캐릭터 팩 화면 상태. 선택한 캐릭터는 설정 화면이 아닌 WindowManager 오버레이에만 올린다.
     var characterPackList by mutableStateOf<List<CharacterPack>>(emptyList())
@@ -170,10 +165,9 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             activeCharacterPack?.isRenderable == true &&
             characterOverlay.permissionGranted
 
-    /** 상태줄에 보일 음성 팩 안내. 알릴 게 없으면 null. */
     val packStatus: String?
-        get() = packNotice ?: activePack.takeIf { it.kind == PackKind.CLIP }?.let {
-            "음성 팩 ${it.name} · 녹음 클립이라 목소리 프리셋은 적용되지 않아요 · 클립이 없는 반응은 기본 음성이 읽어요"
+        get() = activeCharacterPack?.let { character ->
+            if (character.info?.voicePackId == activePack.id) activePack.name else "연결된 음성 팩을 사용할 수 없어요"
         }
 
     val engine = ReactionEngine(
@@ -192,6 +186,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     override fun start() {
         if (started) return
         started = true
+        // Remove the legacy independent voice choice. The active voice is now derived from the selected character manifest.
+        prefs.edit().remove("voicepack.selected").apply()
         vrEnabled = prefs.getBoolean(PREF_VR_ENABLED, false)
         VehicleEvent.entries.forEach { e ->
             val saved = prefs.getString("line.${e.name}", null)?.take(MAX_LINE)
@@ -212,7 +208,6 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 packsLoaded = true
                 refreshPacks()
                 refreshCharacterPacks()
-                restorePackIfLoaded()
                 restoreCharacterPackIfLoaded()
             }
         }, "voicepack-load").apply { isDaemon = true }.start()
@@ -223,7 +218,6 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 characterPacksLoaded = true
                 refreshPacks()
                 refreshCharacterPacks()
-                restorePackIfLoaded()
                 restoreCharacterPackIfLoaded()
             }
         }, "characterpack-load").apply { isDaemon = true }.start()
@@ -258,11 +252,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         ttsStatus = ttsStatus,
         typedLines = typedLines.toMap(),
         logs = logs.map { ReactionLogItem(it.time, it.text, it.note) },
-        packList = packList,
-        activePack = activePack,
-        packsLoaded = packsLoaded,
         packStatus = packStatus,
-        previewStatus = previewStatus,
+        dialogueRows = dialogueRows(),
         fixedLines = VehicleEvent.entries.associateWith(::fixedLine),
         characterPackList = characterPackList,
         activeCharacterPack = activeCharacterPack,
@@ -290,7 +281,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     override fun changeDriving(value: Boolean) = onMain {
         driving = value
         engine.setDriving(value)
-        if (value && previewSeq == speakSeq) stop() // 미리듣기는 정차 중에만: 주행이 시작되면 그 소리를 끊는다(반응 소리는 엔진 규칙대로 둔다)
+        if (value && previewSeq == speakSeq) stop()
         syncCharacterOverlay()
     }
 
@@ -326,13 +317,16 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         }
     }
 
+    private fun dialogueRows(): List<VoiceDialogueRow> {
+        return CharacterDialogueMatrix.rows(activeCharacterPack?.info?.voicePackId, activePack)
+    }
+
     override fun clearLogs() = logs.clear()
 
     // ---- 음성 팩 ----
     /** 선택기의 상태를 화면 상태로 옮기고 대사를 다시 채운다. 설치된 팩을 읽은 뒤와 팩을 고른 뒤에 부른다. */
     private fun refreshPacks() {
         installed = releaseRoster.eligibleVoicePacks(candidateCharacters, candidateVoicePacks)
-        packList = listOf(audio.builtinPack) + installed
         activePack = packs.active()
         refreshLines()
     }
@@ -347,11 +341,16 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             if (failures.isNotEmpty()) Log.w(TAG, "출시 로스터 제외 ${entry.characterId}: ${failures.joinToString()}")
         }
         installedCharacters = releaseRoster.eligibleCharacters(candidateCharacters, candidateVoicePacks)
-        packList = listOf(audio.builtinPack) + installed
-        activePack = packs.active()
-        refreshLines()
         characterPackList = installedCharacters
         activeCharacterPack = characters.active()
+        val pairedVoicePack = CharacterVoiceBinding.resolve(activeCharacterPack, installed)
+        if (pairedVoicePack != null) {
+            packs.select(pairedVoicePack.id)
+        } else {
+            packs.select(audio.builtinPack.id)
+        }
+        activePack = packs.active()
+        refreshLines()
         characterAnimation = activeCharacterPack?.animations?.idle ?: "idle"
         syncCharacterOverlay()
     }
@@ -362,19 +361,27 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         refreshCharacterPacks()
     }
 
-    private fun restorePackIfLoaded() {
-        if (!packsLoaded || !characterPacksLoaded) return
-        packNotice = packs.restore(prefs.getString(PREF_PACK, null))?.let { "$it · 기본 음성으로 말해요" }
-        refreshPacks()
-    }
-
     /** 정차 중에만 READY 캐릭터를 고르고 저장한다. 선택한 표현은 다음 오버레이 표시부터 적용된다. */
-    override fun selectCharacterPack(id: String) {
-        val pack = characterPackList.firstOrNull { it.id == id } ?: return
-        if (driving || pack.state !is CharacterPackState.Ready) return
+    override fun selectCharacterPack(id: String) = onMain {
+        val pack = characterPackList.firstOrNull { it.id == id } ?: return@onMain
+        if (driving || pack.state !is CharacterPackState.Ready) return@onMain
+        val voicePackId = pack.info?.voicePackId
+        val pairedVoicePack = CharacterVoiceBinding.resolve(pack, installed)
+        if (voicePackId == null || pairedVoicePack == null) {
+            characterPackNotice = "출시 로스터에 연결된 준비된 음성 팩이 없어요"
+            Log.e(TAG, "캐릭터 ${pack.id} 선택 거부: voicePackId가 없거나 READY 팩이 없음")
+            return@onMain
+        }
+        val previousVoicePackId = packs.selectedId
+        packs.stopAll()
+        packs.select(voicePackId)?.let { why ->
+            Log.e(TAG, "캐릭터와 음성 팩을 함께 선택하지 못했어요: $why")
+            return@onMain
+        }
         characters.select(id)?.let { why ->
-            Log.w(TAG, why)
-            return
+            packs.select(previousVoicePackId)
+            Log.w(TAG, "캐릭터와 음성 팩을 함께 선택하지 못했어요: $why")
+            return@onMain
         }
         prefs.edit().putString(PREF_CHARACTER_PACK, id).apply()
         characterPackNotice = null
@@ -447,56 +454,32 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         else activePack.takeIf { !it.freeText && it.canSpeak(VehicleSpeechPolicy.canonicalEventId(e)) }
             ?.lineFor(VehicleSpeechPolicy.canonicalEventId(e), e.defaultLine)
 
-    /** 정차 중에만. READY인 팩을 고르고 저장한다. 못 쓰는 팩(INVALID·읽는 중)은 고를 수 없다. */
-    override fun selectPack(id: String) {
-        val pack = packList.firstOrNull { it.id == id } ?: return
-        if (driving || pack.state !is PackState.Ready) return
-        packs.select(id)?.let { why ->
-            Log.w(TAG, why)
-            return
-        }
-        prefs.edit().putString(PREF_PACK, id).apply()
-        packNotice = null // 사용자가 직접 골랐으니 저장해 둔 팩을 못 쓴다는 안내는 끝났다
-        refreshPacks()
-    }
-
-    /**
-     * 이 팩이 말하는 걸 한 번 들려 준다(정차 중에만). 반응 엔진을 거치지 않아서 쿨다운도 반응 기록도 없고,
-     * 팩이 맡지 못해도 기본 음성이 대신 말하지 않는다(그 팩이 실제로 어떻게 들리는지 보여 줘야 한다). 결과는 [previewStatus]에 적는다.
-     */
-    override fun previewPack(pack: VoicePack) {
-        if (driving || pack.state !is PackState.Ready) return
-        val greeting = pack.greeting()
-        val vehiclePreview = VehicleEvent.entries.firstOrNull {
-            VehicleSpeechPolicy.outputFor(it) == SpeechOutput.CHARACTER_CLIP &&
-                (!it.isEnergyEvent || energyProfileAvailable()) &&
-                pack.canSpeak(VehicleSpeechPolicy.canonicalEventId(it))
-        }
-        if (greeting == null && vehiclePreview == null) return
-        val eventId = greeting?.eventId ?: VehicleSpeechPolicy.canonicalEventId(checkNotNull(vehiclePreview))
-        val text = greeting?.text ?: checkNotNull(vehiclePreview).let { event ->
-            pack.lineFor(eventId, typedLines[event] ?: event.defaultLine)
-        }
-        val stamp = clock.format(Date()) // 반응 기록처럼 시각을 붙인다. 지난 결과(특히 실패)가 지금 상태처럼 읽히면 안 된다
-        val head = "$stamp  ${if (greeting != null) "인사말" else "미리듣기"} 요청 · ${pack.name} \"$text\""
-        if (!requestFocus()) {
-            previewStatus = "$stamp  미리듣기를 하지 않았어요 · 오디오 포커스를 얻지 못했어요 (내비 등이 말하는 중)"
-            return
-        }
+    /** One-shot playback for the exact selected-pack event and zero-based clip variant. */
+    override fun previewDialogue(eventId: String, variantIndex: Int) = onMain {
+        if (driving || activeCharacterPack?.info?.voicePackId != activePack.id) return@onMain
+        if (variantIndex !in 0 until activePack.variantCount(eventId)) return@onMain
+        val isGreeting = eventId == GREETING_EVENT
+        if (!isGreeting && !ReleaseRoster.REQUIRED_VOICE_EVENT_IDS.contains(eventId)) return@onMain
         val seq = ++speakSeq
         previewSeq = seq
-        previewStatus = head // 여기서 아는 건 '요청함'까지. 재생됐는지는 음성이 따로 알려 준다
-        packs.stopAll() // 말하던 소리는 먼저 끊는다
-        val request = SpeakRequest(eventId, text, neutral = false, volume = MAX_VOLUME, pitch = preset.pitch, rate = preset.rate)
-        val started = pack.voice.speak(
+        packs.stopAll()
+        if (!requestFocus()) return@onMain
+        val text = activePack.lineFor(eventId, variantIndex) ?: ""
+        val request = SpeakRequest(
+            eventId = eventId,
+            text = text,
+            neutral = eventId in VehicleSpeechPolicy.neutralClipEventIds,
+            volume = MAX_VOLUME,
+            pitch = preset.pitch,
+            rate = preset.rate,
+            variantIndex = variantIndex,
+        )
+        val started = activePack.voice.speak(
             request,
-            note = { msg -> onMain { if (seq == previewSeq) previewStatus += " · $msg" } },
+            note = { msg -> Log.d(TAG, "대사 미리듣기 $eventId[$variantIndex]: $msg") },
             done = { onMain { if (seq == speakSeq) audio.abandonFocus() } },
         )
-        if (!started) {
-            previewStatus = "$head · 재생하지 못했어요"
-            audio.abandonFocus()
-        }
+        if (!started) audio.abandonFocus()
     }
 
     // ---- Platform: 엔진이 바깥 세계와 만나는 곳 ----
@@ -575,7 +558,6 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         const val MAX_LINE = 60
         private const val MAX_LOGS = 50
         private const val MAX_VOLUME = 0.8f // 음량 상한(§6). 엔진과 미리듣기가 같은 값을 쓴다
-        private const val PREF_PACK = "voicepack.selected"
         private const val PREF_CHARACTER_PACK = "characterpack.selected"
         private const val PREF_VR_ENABLED = "characterpack.vr.enabled"
         private const val TAG = "VoiceCompanion"

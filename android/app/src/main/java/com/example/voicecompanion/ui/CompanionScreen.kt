@@ -1,5 +1,7 @@
 package com.example.voicecompanion.ui
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -35,6 +37,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -46,7 +50,6 @@ import com.example.voicecompanion.characterpack.model.CharacterPackState
 import com.example.voicecompanion.data.audio.VoicePreset
 import com.example.voicecompanion.domain.model.VehicleEvent
 import com.example.voicecompanion.domain.model.VehicleAvailability
-import com.example.voicecompanion.domain.model.VehicleSpeechPolicy
 import com.example.voicecompanion.ui.component.CompanionBadge
 import com.example.voicecompanion.ui.component.CompanionBadgeTone
 import com.example.voicecompanion.ui.component.CompanionCard
@@ -58,9 +61,6 @@ import com.example.voicecompanion.ui.event.CompanionTouch
 import com.example.voicecompanion.ui.event.CompanionUiEffect
 import com.example.voicecompanion.ui.theme.CompanionTokens
 import com.example.voicecompanion.ui.viewmodel.CompanionViewModel
-import com.example.voicecompanion.voicepack.domain.PackKind
-import com.example.voicecompanion.voicepack.domain.PackState
-import com.example.voicecompanion.voicepack.domain.VoicePack
 import kotlinx.coroutines.flow.collect
 
 @Composable
@@ -215,7 +215,7 @@ private fun ScreenCard(state: CompanionUiState) {
         StatusMetric("차량 서비스", state.pleosStatus)
         StatusMetric("주행 규제", state.carUxStatus)
         StatusMetric("음성 합성", state.ttsStatus)
-        state.packStatus?.let { StatusMetric("음성 팩", it) }
+        state.packStatus?.let { StatusMetric("연결된 목소리", it) }
         state.characterPackNotice?.let { StatusMetric("캐릭터 팩", it) }
         if (BuildConfig.DEBUG) VehicleDataDebugCard(state)
     }
@@ -281,33 +281,67 @@ private fun CustomCard(state: CompanionUiState, onTouch: (CompanionTouch) -> Uni
         )
 
         Text("대사", style = MaterialTheme.typography.titleSmall)
-        state.availableEvents.forEach { event ->
-            val fixed = state.fixedLine(event)
-            OutlinedTextField(
-                value = fixed ?: state.typedLines[event] ?: event.defaultLine,
-                onValueChange = { onTouch(CompanionTouch.LineChanged(event, it)) },
-                label = { Text(event.label + if (event.neutral) " · 중립 음성" else "") },
-                supportingText = if (fixed != null) ({ Text("녹음된 대사라 수정할 수 없어요") }) else null,
-                singleLine = true,
-                enabled = !state.driving && fixed == null,
-                shape = RoundedCornerShape(CompanionTokens.RowRadius),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                    disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                ),
-                modifier = Modifier.fillMaxWidth(),
+        if (state.dialogueRows.isNotEmpty()) {
+            state.activeCharacterPack?.let { character ->
+                val preview = remember(character.id) {
+                    character.previewPng?.let { bytes -> BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }
+                }
+                if (preview != null) {
+                    Image(
+                        bitmap = preview,
+                        contentDescription = "${character.name} 캐릭터 이미지",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
+                    )
+                }
+            }
+            state.dialogueRows.forEach { row ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(row.label, style = MaterialTheme.typography.labelMedium)
+                    row.variants.forEach { variant ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("${variant.index + 1}. ${variant.text}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            TextButton(
+                                onClick = { onTouch(CompanionTouch.DialoguePreviewRequested(row.eventId, variant.index)) },
+                                enabled = !state.driving,
+                            ) { Text("듣기") }
+                        }
+                    }
+                }
+            }
+            HelperText("선택한 캐릭터의 13개 녹음 대사예요. 듣기를 누르면 해당 WAV를 재생해요.")
+        } else {
+            state.availableEvents.forEach { event ->
+                val fixed = state.fixedLine(event)
+                OutlinedTextField(
+                    value = fixed ?: state.typedLines[event] ?: event.defaultLine,
+                    onValueChange = { onTouch(CompanionTouch.LineChanged(event, it)) },
+                    label = { Text(event.label + if (event.neutral) " · 중립 음성" else "") },
+                    supportingText = if (fixed != null) ({ Text("녹음된 대사라 수정할 수 없어요") }) else null,
+                    singleLine = true,
+                    enabled = !state.driving && fixed == null,
+                    shape = RoundedCornerShape(CompanionTokens.RowRadius),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Text(
+                "대사를 비우면 기본 대사가 적용돼요. 안전 경고는 항상 중립 음성으로 읽어요.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
-            "대사를 비우면 기본 대사가 적용돼요. 안전 경고는 항상 중립 음성으로 읽어요.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
 
         CharacterPackPicker(state, onTouch)
-        PackPicker(state, onTouch)
 
         Text("기본 목소리", style = MaterialTheme.typography.titleSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -326,18 +360,6 @@ private fun CustomCard(state: CompanionUiState, onTouch: (CompanionTouch) -> Uni
             }
         }
     }
-}
-
-@Composable
-private fun PackPicker(state: CompanionUiState, onTouch: (CompanionTouch) -> Unit) {
-    CompanionSectionHeader("음성 팩", "목소리를 선택하고, 설치된 팩의 정보를 확인할 수 있어요.")
-    state.packList.forEach { PackRow(state, it, onTouch) }
-    if (!state.packsLoaded) {
-        HelperText("음성 팩을 읽는 중이에요…")
-    } else if (state.packList.size == 1) {
-        HelperText("출시 로스터 검증을 통과한 음성 팩이 없어 기본 음성을 사용하고 있어요.")
-    }
-    if (state.previewStatus.isNotEmpty()) HelperText(state.previewStatus)
 }
 
 @Composable
@@ -402,70 +424,6 @@ private fun characterPackInfoText(pack: CharacterPack): String {
         append(if (info.provenance.character == "original") "독자 캐릭터 선언" else "참조 기반 캐릭터 · 디버그 전용")
         append(" · ")
         append(if (pack.model != null) "GLB 애니메이션 검증 완료" else "스프라이트 프레임 검증 완료")
-    }
-}
-
-@Composable
-private fun PackRow(state: CompanionUiState, pack: VoicePack, onTouch: (CompanionTouch) -> Unit) {
-    val ready = pack.state is PackState.Ready
-    val selected = state.activePack.id == pack.id
-    var showInfo by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        CompanionListRow(
-            title = pack.name,
-            description = packStateText(pack),
-            selected = selected,
-            enabled = ready && !state.driving,
-            onClick = { onTouch(CompanionTouch.PackSelected(pack.id)) },
-        )
-        if (ready) {
-            Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(
-                    onClick = { onTouch(CompanionTouch.PackPreviewRequested(pack)) },
-                    enabled = !state.driving,
-                ) { Text(if (pack.greeting() != null) "인사 듣기" else "미리듣기") }
-                TextButton({ showInfo = !showInfo }) { Text(if (showInfo) "정보 접기" else "정보") }
-            }
-            if (showInfo) HelperText(packInfoText(pack, state))
-        }
-    }
-}
-
-private fun packStateText(pack: VoicePack): String = when (val state = pack.state) {
-    is PackState.Ready -> when (pack.kind) {
-        PackKind.CLIP -> "준비됨 · 녹음 클립 · 대사는 녹음된 문장이에요"
-        else -> "준비됨 · 대사를 바꿀 수 있어요"
-    }
-    is PackState.Loading -> "읽는 중이에요…"
-    is PackState.Invalid -> "사용할 수 없어요 · ${state.reason}"
-}
-
-private fun packInfoText(pack: VoicePack, state: CompanionUiState): String {
-    val info = pack.info ?: return "폰이나 차량의 음성 합성(TTS)이 읽어요. 모든 반응에 쓰이고 대사를 바꿀 수 있어요."
-    val voice = when (info.provenance.voiceSource) {
-        "self-recorded" -> "직접 녹음"
-        "actor-contract" -> "성우 계약"
-        "open-license" -> "공개 라이선스 음원"
-        "synthetic" -> "합성"
-        else -> info.provenance.voiceSource
-    }
-    val reactions = state.availableEvents.filter {
-        VehicleSpeechPolicy.voicePackClipEventIds.contains(VehicleSpeechPolicy.canonicalEventId(it))
-    }
-    return buildString {
-        append("버전 ${info.version} · 라이선스 ${info.provenance.license} · 상업 이용 ${if (info.provenance.commercialUse) "가능" else "불가"}")
-        append("\n목소리 출처: $voice")
-        info.provenance.attribution?.let { append("\n출처 표기: $it") }
-        if (!pack.freeText) {
-            pack.greeting()?.let { append("\n인사말: ${it.text}") }
-            append("\n이 팩이 말하는 반응: " + reactions.filter {
-                pack.canSpeak(VehicleSpeechPolicy.canonicalEventId(it))
-            }.joinToString { it.label })
-            reactions.filterNot { pack.canSpeak(VehicleSpeechPolicy.canonicalEventId(it)) }
-                .takeIf { it.isNotEmpty() }?.let {
-                append("\n기본 음성이 읽는 반응: " + it.joinToString { event -> event.label })
-            }
-        }
     }
 }
 

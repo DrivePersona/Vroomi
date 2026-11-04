@@ -80,6 +80,29 @@ class ReleaseRosterTest {
         assertTrue(roster.eligibleCharacters(listOf(character()), emptyList()).isEmpty())
     }
 
+    @Test
+    fun `character binding resolves only the exact READY manifest voice id`() {
+        val selectedCharacter = character(voicePackId = "voice.two")
+        val sameNameWrongId = voicePack(packId = "voice.one")
+        val exactReady = voicePack(packId = "voice.two")
+        val exactInvalid = voicePack(packId = "voice.two", packState = PackState.Invalid("bad manifest"))
+
+        assertEquals(exactReady, CharacterVoiceBinding.resolve(selectedCharacter, listOf(sameNameWrongId, exactReady)))
+        assertEquals(null, CharacterVoiceBinding.resolve(selectedCharacter, listOf(sameNameWrongId)))
+        assertEquals(null, CharacterVoiceBinding.resolve(selectedCharacter, listOf(exactInvalid)))
+        assertEquals(null, CharacterVoiceBinding.resolve(character(voicePackId = null), listOf(exactReady)))
+    }
+
+    @Test
+    fun `dialogue matrix exposes greeting and twelve canonical ids only for its linked pack`() {
+        val pack = voicePack()
+        val rows = CharacterDialogueMatrix.rows(pack.id, pack)
+        assertEquals(13, rows.size)
+        assertEquals("__GREETING", rows.first().eventId)
+        assertEquals(ReleaseRoster.REQUIRED_VOICE_EVENT_IDS, rows.drop(1).map { it.eventId }.toSet())
+        assertTrue(CharacterDialogueMatrix.rows("other.voice", pack).isEmpty())
+    }
+
     private fun character(
         voicePackId: String? = entry.voicePackId,
         commercialUse: Boolean = true,
@@ -105,12 +128,14 @@ class ReleaseRosterTest {
         availableEvents: Set<String> = ReleaseRoster.REQUIRED_VOICE_EVENT_IDS,
         commercialUse: Boolean = true,
         consent: Boolean = true,
+        packId: String = entry.voicePackId,
+        packState: PackState = PackState.Ready,
     ) = object : VoicePack {
-        override val id = entry.voicePackId
+        override val id = packId
         override val name = "Voice"
         override val kind = PackKind.CLIP
         override val freeText = false
-        override val state: PackState = PackState.Ready
+        override val state: PackState = packState
         override val voice = object : Voice {
             override fun speak(request: SpeakRequest, note: (String) -> Unit, done: () -> Unit) = true
             override fun stop() = Unit
@@ -121,5 +146,13 @@ class ReleaseRosterTest {
         )
         override fun canSpeak(eventId: String) = eventId in availableEvents
         override fun greeting() = PackGreeting("__GREETING", "안녕하세요.")
+        override fun variantCount(eventId: String) = when {
+            eventId == "__GREETING" -> 1
+            eventId in availableEvents -> 1
+            else -> 0
+        }
+        override fun lineFor(eventId: String, variantIndex: Int): String? =
+            if (variantIndex != 0 || variantCount(eventId) == 0) null
+            else if (eventId == "__GREETING") "안녕하세요." else "대사 $eventId"
     }
 }
