@@ -20,6 +20,10 @@ Virtual Console은 별도 차량 에뮬레이터가 아니다. 이미 실행 중
 | 도어 잠금/위치 | Convenience > Door Position: 지원 영역에서 변경 | capability가 반환한 영역에서 열림 범주 변경에 한 번 반응함 |
 | 공조·좌석 편의 | HVAC 설정 온도/전원/AC/자동/듀얼/내기/공기청정, Seat 착석/열선/통풍 신호 변경 | capability가 지원하는 항목만 활성화되고, 연속 변경은 마지막 값 기준 1초 후 한 번 반응함 |
 | 주행 관련 편의 | Window > Wiper State, Side Mirror Heat, Steering Wheel Heat 변경 | 상태는 갱신되고 주행 중 음성/gesture는 차단됨. 정차 중에도 명시적 요청 없이 자동 발화하지 않도록 정책 확인 |
+| EV 에너지 | EV Battery State of Charge: 60 → 59 → 14 → 18 | EV capability만 읽히면 EV profile. 범주 경계와 3%p 상향 hysteresis에 따라 필요한 범주 전환만 기록하고, urgent 경고는 중립 음성으로 처리 |
+| 연료 에너지 | Fuel Percent: 60 → 29 → 14 → 18 | Fuel capability만 읽히면 fuel profile. 연료 경제성은 지원되는 현재/순간/충전 이후/누적 값만 기록 |
+| HEV/PHEV 에너지 | EV SOC와 Fuel Percent가 모두 읽히는 차량에서 양쪽 값을 개별 입력 | hybrid profile로 분류하고 두 잔량을 따로 유지. 모델명이나 VIN은 사용하지 않음 |
+| 충전 포트/스위치 | EV Charge Port Open 및 Charge Switch | 포트는 listener 변경을 확인. Charge Switch는 SDK API가 capability와 단건 get만 제공하므로 화면의 현재 읽기값만 검증하고 변경 E2E는 보류 |
 
 `음성 재생 시작`은 앱 기록의 `재생됨` 또는 Pleos Speech Service의 시작 이벤트를 뜻한다. 단지 Virtual Console 카드의 값만 바뀐 것은 **차량 신호 송신 성공**일 뿐, 앱 반응까지 확인한 것은 아니다.
 
@@ -29,13 +33,15 @@ Virtual Console은 별도 차량 에뮬레이터가 아니다. 이미 실행 중
 
 > 편의 제어 상태 구독(이슈 #12)은 `CAR_CLIMATE`, `CAR_SEATS`, `READ_WINDSHIELD_WIPERS`, `CAR_MIRRORS`, `READ_CAR_STEERING` 읽기 승인이 필요하다. 코드에는 HVAC 전원/AC/자동/듀얼/내기/공기청정/성에 제거, 설정 온도/팬 세기, 좌석 착석/열선/통풍, 와이퍼, 미러 열선, 핸들 열선을 capability 기반으로 연결했다. fan direction의 현재값 listener는 Vehicle SDK 2.3.2 API에 없어 연결하지 않으며, 사용하지 않는 제어 권한은 추가하지 않는다.
 
+> 에너지 프로필 구독(이슈 #13)은 `CAR_ENERGY` 읽기 승인이 필요하다. EV profile은 SOC, fuel profile은 Fuel Percent capability로 판단하고, 둘 다 지원되면 HEV/PHEV profile로 분류한다. SDK 2.3.2에는 충전 스위치 변경 listener가 없어서 충전 시작/완료를 확정할 수 없고, 현재 스위치값만 단건 조회한다. 충전 포트 변경은 공개 listener로 검증할 수 있다. 시작/완료 이벤트는 확인하지 못한 상태를 추측하지 않도록 아직 발화하지 않는다.
+
 ## 사전 조건
 
 - Pleos Connect AVD 2.1.0 이상을 **콜드 부팅**한다.
 - 앱 APK를 그 AVD의 현재 Android 사용자에 설치한다. 이 이미지에서는 보통 사용자 `10`이다.
 - 앱의 실제 패키지 이름을 확인한다. `reviewDebug`는 `com.example.voicecompanion.review`, 기본 debug는 `com.example.voicecompanion`이다.
 - 앱 설정의 `주행 중 음성`은 테스트 목적에 맞게 설정한다. 브레이크·방향지시등은 우선 기어 `P`에서 검증한다.
-- 앱 Manifest와 Pleos App Market 사전 승인 범위에 필요한 읽기 권한(`CAR_LIGHTS`, `CAR_WINDOWS`, `CAR_DOORS`, `CAR_CLIMATE`, `CAR_SEATS`, `READ_WINDSHIELD_WIPERS`, `CAR_MIRRORS`, `READ_CAR_STEERING`)이 포함되어 있는지 확인한다. 제어 권한은 필요하지 않다.
+- 앱 Manifest와 Pleos App Market 사전 승인 범위에 필요한 읽기 권한(`CAR_LIGHTS`, `CAR_WINDOWS`, `CAR_DOORS`, `CAR_CLIMATE`, `CAR_SEATS`, `READ_WINDSHIELD_WIPERS`, `CAR_MIRRORS`, `READ_CAR_STEERING`, `CAR_ENERGY`)이 포함되어 있는지 확인한다. 제어 권한은 필요하지 않다.
 - 앱을 연 직후 각 차량 API가 보내는 **첫 상태 값은 기준값**으로만 사용한다. 이벤트 확인 전에는 브레이크를 `0%`, 방향지시등을 `Off`로 맞춘다.
 
 ## 1. AVD와 Virtual Console 연결

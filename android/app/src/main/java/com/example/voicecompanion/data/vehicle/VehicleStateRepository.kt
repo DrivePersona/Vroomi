@@ -67,6 +67,8 @@ class VehicleStateRepository(
 
     fun markError(dataKey: String, detail: String) = update(dataKey, VehicleAvailability.ERROR, detail = detail)
 
+    fun emitReaction(dataKey: String, event: VehicleEvent) = dispatchIfAllowed(dataKey, event)
+
     fun observe(dataKey: String, value: String?) {
         if (value == null) {
             markError(dataKey, "차량 서비스가 값을 보내지 않았어요")

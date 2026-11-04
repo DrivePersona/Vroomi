@@ -24,9 +24,17 @@ enum class VehicleEvent(
     WINDOW("창문 변경", Rank.FLOURISH, 0, "🚘", "창문 설정이 바뀌었어."),
     DOOR("도어 변경", Rank.FLOURISH, 0, "🚪", "도어 상태가 바뀌었어."),
     COMFORT("공조·편의 설정 변경", Rank.FLOURISH, 0, "🌡️", "편의 설정이 바뀌었어."),
+    ENERGY_SUFFICIENT("에너지 여유", Rank.STATUS, 60_000, "🔋", "에너지가 충분해."),
+    ENERGY_COMFORTABLE("에너지 보통", Rank.STATUS, 60_000, "🔋", "에너지 상태 괜찮아."),
+    ENERGY_ATTENTION("에너지 확인", Rank.STATUS, 60_000, "🔋", "에너지를 확인해 줘."),
+    ENERGY_URGENT("에너지 부족 경고", Rank.SAFETY, 60_000, "😐", "에너지가 부족합니다. 충전 또는 주유가 필요해요.", neutral = true),
+    CHARGE_PORT("충전구 상태", Rank.STATUS, 10_000, "🔌", "충전구 상태가 바뀌었어."),
 }
 
 enum class DropReason { COOLDOWN, PRIORITY, FOCUS, DRIVING_SILENT }
+
+val VehicleEvent.isEnergyEvent: Boolean
+    get() = name.startsWith("ENERGY_")
 
 sealed interface LogEntry {
     val event: VehicleEvent

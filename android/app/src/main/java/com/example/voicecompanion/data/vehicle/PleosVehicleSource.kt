@@ -115,6 +115,14 @@ class PleosVehicleSource(
             onFailure = { name, error -> recordFailure(name, error) },
             stopped = ::isStopped,
         ).start()
+        PleosEnergySubscriptions(
+            vehicle = vehicle,
+            states = states,
+            capabilities = capabilityRequests,
+            addUndo = ::addUndo,
+            onFailure = { name, error -> recordFailure(name, error) },
+            stopped = ::isStopped,
+        ).start()
         finishCapabilityLaunch()
     }
 
