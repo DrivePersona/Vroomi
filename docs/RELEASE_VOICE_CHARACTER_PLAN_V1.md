@@ -23,7 +23,7 @@ Every release pack must provide one greeting and these twelve vehicle slots:
 
 `BRAKE`, `TURN`, `MODE`, `TIRE`, `WARNING`, `DOOR`, `WINDOW`, `AMBIENT_LIGHT`, `HVAC`, `WIPER`, `CHARGE`, `ENERGY_LOW`.
 
-The ten packs currently have real WAV coverage for `__GREETING`, `BRAKE`, `TURN`, `MODE`, and `TIRE`. The other eight lines are text-ready in the private voice repository's matrix, but are not treated as audio until Qwen clips are generated, auditioned, hashed, and added to the pack manifest.
+The ten packs already contain 13 generated WAV files each: `__GREETING` plus three variants for `BRAKE`, `TURN`, `MODE`, and `TIRE`. This is five covered slot categories, not all thirteen canonical vehicle slots. The other eight lines are text-ready in the private voice repository's matrix; the first completion pass adds one Qwen clip per missing slot (80 clips total), then auditions, hashes, and adds them to each pack manifest.
 
 ## Commercial-use gate
 
