@@ -32,9 +32,10 @@ import com.example.voicecompanion.voicepack.data.AssetPackSource
 import com.example.voicecompanion.voicepack.data.PackRepository
 import com.example.voicecompanion.voicepack.domain.ClipPackFactory
 import com.example.voicecompanion.voicepack.domain.PackSelector
+import com.example.voicecompanion.voicepack.domain.ClipGesture
+import com.example.voicecompanion.voicepack.domain.GREETING_EVENT
 import com.example.voicecompanion.voicepack.domain.SpeakRequest
 import com.example.voicecompanion.voicepack.domain.VoicePack
-import com.example.voicecompanion.voicepack.domain.GREETING_EVENT
 import com.example.voicecompanion.characterpack.data.AssetCharacterPackSource
 import com.example.voicecompanion.characterpack.data.CharacterPackRepository
 import com.example.voicecompanion.characterpack.domain.CharacterPackSelector
@@ -133,6 +134,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     )
     private var speakSeq = 0 // 가장 최근 말하기 요청의 번호. 늦게 온 이전 요청의 done이 새 요청의 포커스를 놓지 않게 한다
     private var previewSeq = -1 // 주행 시작 시 진행 중인 대사 미리듣기를 끊는다
+    private var gestureStart: Runnable? = null
 
     // 선택된 캐릭터의 manifest voicePackId가 음성 팩을 자동으로 결정한다.
     var activePack by mutableStateOf(audio.builtinPack)
@@ -470,6 +472,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         packs.stopAll()
         if (!requestFocus()) return@onMain
         val text = activePack.lineFor(eventId, variantIndex) ?: ""
+        val clipGesture = activePack.gestureFor(eventId, variantIndex)
         val request = SpeakRequest(
             eventId = eventId,
             text = text,
@@ -485,7 +488,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 onMain {
                     Log.d(TAG, "대사 미리듣기 $eventId[$variantIndex]: $msg")
                     if (msg == PLAYBACK_STARTED && eventId in VehicleSpeechPolicy.characterClipEventIds) {
-                        startGesture(eventId, seq)
+                        startGesture(eventId, seq, clipGesture)
                     }
                 }
             },
@@ -521,12 +524,16 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             rate = if (neutralDelivery) 1f else preset.rate,
         )
         var usedFallback = false
+        var selectedClipGesture: ClipGesture? = null
         packs.speak(
             request,
             note = { msg -> onMain {
                 row?.let { it.note += " · $msg" }
-                if (msg == PLAYBACK_STARTED && !usedFallback) gestureEventId?.let { startGesture(it, seq) }
+                if (msg == PLAYBACK_STARTED && !usedFallback) gestureEventId?.let { startGesture(it, seq, selectedClipGesture) }
             } },
+            onVariantSelected = { variantIndex ->
+                selectedClipGesture = activePack.gestureFor(request.eventId, variantIndex)
+            },
             // 포커스는 가장 최근 요청이 끝났을 때만 놓는다. 끊긴 이전 요청의 늦은 done이 새 요청의 포커스를 놓으면 안 된다.
             done = { onMain { if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() } } },
             onFallback = { why ->
@@ -542,13 +549,24 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         audio.abandonFocus()
     }
 
-    private fun startGesture(eventId: String, speechSequence: Int) {
+    private fun startGesture(eventId: String, speechSequence: Int, clipGesture: ClipGesture? = null) {
         if (speechSequence != speakSeq || driving) return
+        gestureStart?.let(main::removeCallbacks)
+        gestureStart = null
         val character = activeCharacterPack ?: return
-        val gesture = CharacterGestureResolver.resolve(character.animations, eventId) ?: return
-        characterAnimation = gesture.animationName
-        syncCharacterOverlay()
-        // CharacterSurfaceView plays the declared GLB clip once and holds its final pose until audio ends.
+        val gesture = CharacterGestureResolver.resolve(character.animations, eventId, clipGesture?.gestureId) ?: return
+        val begin = Runnable {
+            gestureStart = null
+            if (speechSequence != speakSeq || driving || activeCharacterPack !== character) return@Runnable
+            characterAnimation = gesture.animationName
+            syncCharacterOverlay()
+            // CharacterSurfaceView plays the declared GLB clip once and holds its final pose until audio ends.
+        }
+        if (clipGesture == null || clipGesture.startOffsetMs == 0) begin.run()
+        else {
+            gestureStart = begin
+            main.postDelayed(begin, clipGesture.startOffsetMs.toLong())
+        }
     }
 
     private fun finishGesture(speechSequence: Int) {
@@ -556,6 +574,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     }
 
     private fun cancelGesture() {
+        gestureStart?.let(main::removeCallbacks)
+        gestureStart = null
         activeCharacterPack?.let { character ->
             characterAnimation = character.animations?.idle ?: "idle"
             syncCharacterOverlay()
@@ -563,6 +583,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     }
 
     private fun resetGesture() {
+        gestureStart?.let(main::removeCallbacks)
+        gestureStart = null
         characterAnimation = activeCharacterPack?.animations?.idle ?: "idle"
         syncCharacterOverlay()
     }
