@@ -46,3 +46,13 @@ APK: 메인 통합 브랜치의 `reviewDebug`
 4. 앱에서는 Pleos Vehicle SDK 콜백, Vehicle 데이터 디버그 기록, 음성·캐릭터 반응만 확인한다.
 
 앱 내부 시뮬레이터 패널은 웹·오프라인 규칙을 확인하는 개발 도구이며, Pleos 차량 인터페이스 수신 증적에는 사용하지 않는다.
+
+## 내부 후보 캐릭터 미리보기
+
+`internalDebug`는 출시 로스터가 비어 있을 때에도 승인 전 후보 GLB를 `내부 미리보기`로 표시한다. 이 경로는 후보 캐릭터의 선택·렌더링·오버레이 배치만 확인하기 위한 것이며, 후보 manifest의 `voicePackId=null`과 `commercialUse=false`를 유지한다. 음성은 기본 Pleos 음성을 사용하고, 출시 빌드의 로스터에는 자동 등록하지 않는다.
+
+후보 목록에서 `차 안 버튜버`를 선택한 뒤 `VR 캐릭터 켜기`와 `VR 시작`을 눌러 GLB 오버레이를 확인했다.
+
+![내부 후보 캐릭터 목록](evidence/pleos-candidate-list-internal.png)
+
+![내부 후보 VR 오버레이](evidence/pleos-candidate-vr-overlay-internal.png)
