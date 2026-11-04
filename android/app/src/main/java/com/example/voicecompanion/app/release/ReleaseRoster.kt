@@ -112,6 +112,16 @@ data class ReleaseRoster(val entries: List<ReleaseRosterEntry>) {
                         add("required voice clip is missing: $eventId")
                     } else if (voicePack.variantCount(eventId) < 1) {
                         add("required voice clip has no indexed variant: $eventId")
+                    } else {
+                        (0 until voicePack.variantCount(eventId)).forEach { variantIndex ->
+                            val gesture = voicePack.gestureFor(eventId, variantIndex) ?: return@forEach
+                            val supported = character?.animations?.supportedGestures?.get(gesture.gestureId)
+                            if (supported == null) {
+                                add("voice clip gesture is not supported by the character manifest: $eventId[$variantIndex] -> ${gesture.gestureId}")
+                            } else if (!supported.oneShot) {
+                                add("voice clip gesture must be one-shot: $eventId[$variantIndex] -> ${gesture.gestureId}")
+                            }
+                        }
                     }
                 }
             }

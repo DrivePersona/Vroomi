@@ -8,6 +8,7 @@ import com.example.voicecompanion.characterpack.model.CharacterPackInfo
 import com.example.voicecompanion.characterpack.model.CharacterPackState
 import com.example.voicecompanion.characterpack.model.CharacterProvenance
 import com.example.voicecompanion.characterpack.model.SupportedGesture
+import com.example.voicecompanion.voicepack.domain.ClipGesture
 import com.example.voicecompanion.voicepack.domain.PackGreeting
 import com.example.voicecompanion.voicepack.domain.PackInfo
 import com.example.voicecompanion.voicepack.domain.PackKind
@@ -75,6 +76,17 @@ class ReleaseRosterTest {
     }
 
     @Test
+    fun `release roster validates per-clip gesture IDs and requires one-shot character actions`() {
+        val packWithGesture = voicePack(gestures = mapOf("BRAKE" to ClipGesture("surprise", 120)))
+        assertTrue(ReleaseRoster.eligibilityFailures(entry, character(gestures = mapOf("BRAKE" to "surprise")), packWithGesture).isEmpty())
+        assertTrue(ReleaseRoster.eligibilityFailures(entry, character(), packWithGesture)
+            .any { it.contains("voice clip gesture is not supported") })
+        val looping = character(gestures = mapOf("BRAKE" to "surprise"), oneShot = false)
+        assertTrue(ReleaseRoster.eligibilityFailures(entry, looping, packWithGesture)
+            .any { it.contains("voice clip gesture must be one-shot") })
+    }
+
+    @Test
     fun `picker allowlist contains only fully eligible roster matches`() {
         val roster = ReleaseRoster(listOf(entry))
         val candidate = character()
@@ -115,16 +127,35 @@ class ReleaseRosterTest {
             .contains("required voice clip has no indexed variant: BRAKE"))
     }
 
+    @Test
+    fun `gesture resolver returns at most one declared one-shot reaction`() {
+        val valid = CharacterAnimations(
+            "idle",
+            mapOf("BRAKE" to "surprise"),
+            mapOf("surprise" to SupportedGesture("jump", 700, oneShot = true)),
+        )
+        assertEquals(SupportedGesture("jump", 700, oneShot = true), CharacterGestureResolver.resolve(valid, "BRAKE"))
+        assertEquals(SupportedGesture("jump", 700, oneShot = true), CharacterGestureResolver.resolve(valid.copy(reactions = emptyMap()), "BRAKE", "surprise"))
+        assertEquals(null, CharacterGestureResolver.resolve(valid, "BRAKE", "undeclared"))
+        assertEquals(null, CharacterGestureResolver.resolve(valid, "WARNING"))
+        assertEquals(null, CharacterGestureResolver.resolve(valid.copy(supportedGestures = emptyMap()), "BRAKE"))
+        assertEquals(null, CharacterGestureResolver.resolve(
+            valid.copy(supportedGestures = mapOf("surprise" to SupportedGesture("jump", 700, oneShot = false))),
+            "BRAKE",
+        ))
+    }
+
     private fun character(
         voicePackId: String? = entry.voicePackId,
         commercialUse: Boolean = true,
         gestures: Map<String, String> = emptyMap(),
         supportedGestureIds: Set<String> = gestures.values.toSet(),
+        oneShot: Boolean = true,
     ) = object : CharacterPack {
         private val characterAnimations = CharacterAnimations(
             "idle",
             gestures,
-            gestures.values.filter { it in supportedGestureIds }.associateWith { SupportedGesture(it, 500, oneShot = true) },
+            gestures.values.filter { it in supportedGestureIds }.associateWith { SupportedGesture(it, 500, oneShot) },
         )
         override val id = entry.characterId
         override val name = "Character"
@@ -148,6 +179,7 @@ class ReleaseRosterTest {
         packId: String = entry.voicePackId,
         packState: PackState = PackState.Ready,
         variantCounts: Map<String, Int> = emptyMap(),
+        gestures: Map<String, ClipGesture> = emptyMap(),
     ) = object : VoicePack {
         override val id = packId
         override val name = "Voice"
@@ -172,5 +204,6 @@ class ReleaseRosterTest {
         override fun lineFor(eventId: String, variantIndex: Int): String? =
             if (variantIndex != 0 || variantCount(eventId) == 0) null
             else if (eventId == "__GREETING") "안녕하세요." else "대사 $eventId"
+        override fun gestureFor(eventId: String, variantIndex: Int) = gestures[eventId]?.takeIf { variantIndex == 0 }
     }
 }
