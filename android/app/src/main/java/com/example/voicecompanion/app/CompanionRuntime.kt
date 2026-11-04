@@ -68,6 +68,12 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private val main = Handler(Looper.getMainLooper())
     private val prefs = app.getSharedPreferences("voice-companion", Context.MODE_PRIVATE)
     private val vehicleInputs: VehicleInputRepository = PleosVehicleInputRepository(app)
+    private val vehicleCatalogLock = Any()
+    private var pendingVehicleCatalog: List<VehicleDataState>? = null
+    private var vehicleCatalogPublishScheduled = false
+    private val vehicleStatusLock = Any()
+    private val pendingVehicleStatuses = mutableMapOf<VehicleInput.Source, String>()
+    private var vehicleStatusPublishScheduled = false
     private val lastSpeakRow = HashMap<VehicleEvent, LogRow>()
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.US)
 
@@ -197,7 +203,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         // 자동차에선 주행 규제가 알려 줄 때까지 주행으로 본다(닫힌 쪽이 안전). 폰에선 정차로 시작해 시뮬레이터를 쓸 수 있게 한다.
         val automotive = app.packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
         changeDriving(automotive)
-        vehicleInputs.start(::acceptVehicleInput)
+        // Pleos의 capability 조회와 구독 등록은 초기 콜백을 대량으로 만들 수 있다.
+        // Compose 첫 프레임을 막지 않도록 시작 자체는 UI 스레드 밖에서 수행한다.
+        Thread({ vehicleInputs.start(::acceptVehicleInput) }, "vehicle-input-start").apply {
+            isDaemon = true
+        }.start()
         Thread({
             val list = repository.load()
             onMain {
@@ -223,16 +233,56 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     }
 
     /** Repository가 SDK별 콜백을 공통 차량 입력 모델로 바꾼 뒤 이곳으로 보낸다. */
-    private fun acceptVehicleInput(input: VehicleInput) = onMain {
+    private fun acceptVehicleInput(input: VehicleInput) {
+        // 시작 직후 수십 개의 capability/초기 값 콜백이 한 번에 온다. 매번 Compose
+        // 상태를 바꾸지 않고 가장 최근 카탈로그만 한 프레임 뒤에 반영한다.
+        if (input is VehicleInput.Catalog) {
+            scheduleVehicleCatalog(input.states)
+            return
+        }
+        if (input is VehicleInput.Status) {
+            scheduleVehicleStatus(input.source, input.message)
+            return
+        }
+        onMain {
         when (input) {
             is VehicleInput.Event -> if ((!input.event.isEnergyEvent || energyProfileAvailable()) && (!driving || input.allowWhileDriving)) engine.emit(input.event)
             is VehicleInput.Driving -> changeDriving(input.isDriving)
-            is VehicleInput.Status -> when (input.source) {
-                VehicleInput.Source.CAR_UX -> carUxStatus = input.message
-                VehicleInput.Source.PLEOS_VEHICLE -> pleosStatus = input.message
-            }
-            is VehicleInput.Catalog -> vehicleData = input.states
+            is VehicleInput.Status -> Unit
+            is VehicleInput.Catalog -> Unit
         }
+        }
+    }
+
+    private fun scheduleVehicleCatalog(states: List<VehicleDataState>) {
+        synchronized(vehicleCatalogLock) {
+            pendingVehicleCatalog = states
+            if (vehicleCatalogPublishScheduled) return
+            vehicleCatalogPublishScheduled = true
+        }
+        main.postDelayed({
+            val latest = synchronized(vehicleCatalogLock) {
+                vehicleCatalogPublishScheduled = false
+                pendingVehicleCatalog.also { pendingVehicleCatalog = null }
+            }
+            if (latest != null) vehicleData = latest
+        }, VEHICLE_CATALOG_DEBOUNCE_MS)
+    }
+
+    private fun scheduleVehicleStatus(source: VehicleInput.Source, message: String) {
+        synchronized(vehicleStatusLock) {
+            pendingVehicleStatuses[source] = message
+            if (vehicleStatusPublishScheduled) return
+            vehicleStatusPublishScheduled = true
+        }
+        main.postDelayed({
+            val latest = synchronized(vehicleStatusLock) {
+                vehicleStatusPublishScheduled = false
+                pendingVehicleStatuses.toMap().also { pendingVehicleStatuses.clear() }
+            }
+            latest[VehicleInput.Source.CAR_UX]?.let { carUxStatus = it }
+            latest[VehicleInput.Source.PLEOS_VEHICLE]?.let { pleosStatus = it }
+        }, VEHICLE_CATALOG_DEBOUNCE_MS)
     }
 
     /** ViewModel이 수집하는 화면 전용 스냅샷. Compose 가변 상태를 바깥으로 노출하지 않는다. */
@@ -539,6 +589,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         const val IDLE_BUBBLE = "차량 이벤트가 생기면 여기서 말해요."
         const val MAX_LINE = 60
         private const val MAX_LOGS = 50
+        private const val VEHICLE_CATALOG_DEBOUNCE_MS = 100L
         private const val MAX_VOLUME = 0.8f // 음량 상한(§6). 엔진과 미리듣기가 같은 값을 쓴다
         private const val PREF_PACK = "voicepack.selected"
         private const val PREF_CHARACTER_PACK = "characterpack.selected"
