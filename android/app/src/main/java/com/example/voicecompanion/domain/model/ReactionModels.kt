@@ -23,6 +23,7 @@ enum class VehicleEvent(
     LIGHT("조명 변경", Rank.FLOURISH, 0, "💡", "조명 설정이 바뀌었어."),
     WINDOW("창문 변경", Rank.FLOURISH, 0, "🚘", "창문 설정이 바뀌었어."),
     DOOR("도어 변경", Rank.FLOURISH, 0, "🚪", "도어 상태가 바뀌었어."),
+    COMFORT("공조·편의 설정 변경", Rank.FLOURISH, 0, "🌡️", "편의 설정이 바뀌었어."),
 }
 
 enum class DropReason { COOLDOWN, PRIORITY, FOCUS, DRIVING_SILENT }

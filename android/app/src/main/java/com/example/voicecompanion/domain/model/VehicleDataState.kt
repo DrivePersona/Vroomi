@@ -4,7 +4,7 @@ enum class VehicleDomain { MOTION, CONVENIENCE, SAFETY }
 
 enum class VehicleValueType { BOOLEAN, ENUM, INTEGER, COLOR }
 
-enum class VehicleReactionPolicy { CHANGE, BRIGHTNESS_BUCKET, POSITION_BUCKET }
+enum class VehicleReactionPolicy { CHANGE, DEBOUNCED_CHANGE, BRIGHTNESS_BUCKET, POSITION_BUCKET }
 
 enum class VehicleAvailability { CHECKING, ACTIVE, UNSUPPORTED, ERROR }
 
@@ -19,6 +19,7 @@ data class VehicleDataDefinition(
     val reactionPolicy: VehicleReactionPolicy? = null,
     val cooldownMs: Long = 2_500,
     val allowWhileDriving: Boolean = true,
+    val debounceMs: Long = 800,
 )
 
 data class VehicleDataState(

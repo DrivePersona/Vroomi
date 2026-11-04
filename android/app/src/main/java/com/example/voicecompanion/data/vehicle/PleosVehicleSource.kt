@@ -107,6 +107,14 @@ class PleosVehicleSource(
             stopped = ::isStopped,
         )
         convenience.start()
+        PleosComfortSubscriptions(
+            vehicle = vehicle,
+            states = states,
+            capabilities = capabilityRequests,
+            addUndo = ::addUndo,
+            onFailure = { name, error -> recordFailure(name, error) },
+            stopped = ::isStopped,
+        ).start()
         finishCapabilityLaunch()
     }
 
