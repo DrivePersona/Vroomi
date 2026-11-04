@@ -46,6 +46,7 @@ import com.example.voicecompanion.characterpack.model.CharacterPackState
 import com.example.voicecompanion.data.audio.VoicePreset
 import com.example.voicecompanion.domain.model.VehicleEvent
 import com.example.voicecompanion.domain.model.VehicleAvailability
+import com.example.voicecompanion.domain.model.VehicleSpeechPolicy
 import com.example.voicecompanion.ui.component.CompanionBadge
 import com.example.voicecompanion.ui.component.CompanionBadgeTone
 import com.example.voicecompanion.ui.component.CompanionCard
@@ -448,15 +449,20 @@ private fun packInfoText(pack: VoicePack, state: CompanionUiState): String {
         "synthetic" -> "합성"
         else -> info.provenance.voiceSource
     }
-    val reactions = state.availableEvents.filter { !it.neutral }
+    val reactions = state.availableEvents.filter {
+        VehicleSpeechPolicy.voicePackClipEventIds.contains(VehicleSpeechPolicy.canonicalEventId(it))
+    }
     return buildString {
         append("버전 ${info.version} · 라이선스 ${info.provenance.license} · 상업 이용 ${if (info.provenance.commercialUse) "가능" else "불가"}")
         append("\n목소리 출처: $voice")
         info.provenance.attribution?.let { append("\n출처 표기: $it") }
         if (!pack.freeText) {
             pack.greeting()?.let { append("\n인사말: ${it.text}") }
-            append("\n이 팩이 말하는 반응: " + reactions.filter { pack.canSpeak(it.name) }.joinToString { it.label })
-            reactions.filterNot { pack.canSpeak(it.name) }.takeIf { it.isNotEmpty() }?.let {
+            append("\n이 팩이 말하는 반응: " + reactions.filter {
+                pack.canSpeak(VehicleSpeechPolicy.canonicalEventId(it))
+            }.joinToString { it.label })
+            reactions.filterNot { pack.canSpeak(VehicleSpeechPolicy.canonicalEventId(it)) }
+                .takeIf { it.isNotEmpty() }?.let {
                 append("\n기본 음성이 읽는 반응: " + it.joinToString { event -> event.label })
             }
         }
