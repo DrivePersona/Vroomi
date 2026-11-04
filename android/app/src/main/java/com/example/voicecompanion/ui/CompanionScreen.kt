@@ -335,7 +335,7 @@ private fun PackPicker(state: CompanionUiState, onTouch: (CompanionTouch) -> Uni
     if (!state.packsLoaded) {
         HelperText("음성 팩을 읽는 중이에요…")
     } else if (state.packList.size == 1) {
-        HelperText("설치된 음성 팩이 없어 기본 음성을 사용하고 있어요.")
+        HelperText("출시 로스터 검증을 통과한 음성 팩이 없어 기본 음성을 사용하고 있어요.")
     }
     if (state.previewStatus.isNotEmpty()) HelperText(state.previewStatus)
 }
@@ -347,7 +347,7 @@ private fun CharacterPackPicker(state: CompanionUiState, onTouch: (CompanionTouc
     if (!state.characterPacksLoaded) {
         HelperText("캐릭터 팩을 읽는 중이에요…")
     } else if (state.characterPackList.isEmpty()) {
-        HelperText("설치된 캐릭터 팩이 없어 VR 캐릭터를 표시할 수 없어요.")
+        HelperText("출시 로스터의 음성·권리·표현 검증을 통과한 캐릭터가 없어 VR 표시를 사용할 수 없어요.")
     }
     Text("VR 표시", style = MaterialTheme.typography.titleSmall)
     SwitchRow(
