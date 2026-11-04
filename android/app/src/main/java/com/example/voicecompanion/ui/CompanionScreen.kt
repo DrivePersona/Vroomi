@@ -96,7 +96,7 @@ private fun CompanionContent(state: CompanionUiState, onTouch: (CompanionTouch) 
                         Modifier.weight(1f).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(CompanionTokens.SectionGap),
                     ) {
-                        ScreenCard(state)
+                        ScreenCard(state, onTouch)
                         CustomCard(state, onTouch)
                     }
                     Column(
@@ -117,7 +117,7 @@ private fun CompanionContent(state: CompanionUiState, onTouch: (CompanionTouch) 
                 verticalArrangement = Arrangement.spacedBy(CompanionTokens.SectionGap),
             ) {
                 CompanionTopHeader(state)
-                ScreenCard(state)
+                ScreenCard(state, onTouch)
                 // 폰에서는 실제 반응 확인과 기록을 상세 편집보다 먼저 배치한다.
                 if (BuildConfig.DEBUG) SimulatorCard(state, onTouch)
                 LogCard(state, onTouch)
@@ -194,7 +194,7 @@ private fun DrivingContent(state: CompanionUiState, onTouch: (CompanionTouch) ->
 
 /** 차량 설정 화면. 3D 캐릭터는 앱 카드가 아니라 WindowManager 오버레이에서만 보인다. */
 @Composable
-private fun ScreenCard(state: CompanionUiState) {
+private fun ScreenCard(state: CompanionUiState, onTouch: (CompanionTouch) -> Unit) {
     val title = when {
         !state.driving -> "정차 중이에요"
         state.voiceWhileDriving -> "목소리로만 알려드릴게요"
@@ -211,6 +211,8 @@ private fun ScreenCard(state: CompanionUiState) {
             val character = state.activeCharacterPack
             StatusMetric("VR 캐릭터", character?.name ?: "선택한 캐릭터가 없어요")
             StatusMetric("VR 표시", state.vrOverlayStatus)
+            // 캐릭터 선택은 상태 카드에서 바로 이어져야 한다. 개발용 Vehicle 디버그 로그보다 위에 둔다.
+            CharacterPackPicker(state, onTouch)
         }
         StatusMetric("차량 서비스", state.pleosStatus)
         StatusMetric("주행 규제", state.carUxStatus)
@@ -340,8 +342,6 @@ private fun CustomCard(state: CompanionUiState, onTouch: (CompanionTouch) -> Uni
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-
-        CharacterPackPicker(state, onTouch)
 
         Text("기본 목소리", style = MaterialTheme.typography.titleSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
