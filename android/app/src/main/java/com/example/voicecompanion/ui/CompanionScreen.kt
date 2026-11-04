@@ -370,6 +370,8 @@ private fun CharacterPackPicker(state: CompanionUiState, onTouch: (CompanionTouc
         HelperText("캐릭터 팩을 읽는 중이에요…")
     } else if (state.characterPackList.isEmpty()) {
         HelperText("출시 로스터의 음성·권리·표현 검증을 통과한 캐릭터가 없어 VR 표시를 사용할 수 없어요.")
+    } else if (BuildConfig.DEBUG && state.characterPackList.any { it.info?.voicePackId == null }) {
+        HelperText("내부 후보 미리보기예요. 음성 팩과 상업 이용 승인을 마치기 전까지 출시 목록에는 들어가지 않아요.")
     }
     Text("VR 표시", style = MaterialTheme.typography.titleSmall)
     SwitchRow(
@@ -408,6 +410,7 @@ private fun CharacterPackRow(state: CompanionUiState, pack: CharacterPack, onTou
 
 private fun characterPackStateText(pack: CharacterPack): String = when (val state = pack.state) {
     is CharacterPackState.Ready -> when {
+        pack.model != null && pack.info?.voicePackId == null -> "내부 미리보기 · GLB 3D 모델"
         pack.model != null -> "준비됨 · GLB 3D 모델"
         pack.sprite != null -> "준비됨 · 2D 애니메이션 스프라이트"
         else -> "사용할 수 없어요 · 표현 파일이 없어요"

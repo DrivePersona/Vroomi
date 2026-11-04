@@ -1,5 +1,6 @@
 package com.example.voicecompanion.app
 
+import com.example.voicecompanion.BuildConfig
 import com.example.voicecompanion.data.audio.AndroidAudio
 import com.example.voicecompanion.data.audio.VoicePreset
 import com.example.voicecompanion.data.vehicle.PleosVehicleInputRepository
@@ -167,6 +168,10 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private var settingsVisible = true
     private val characterOverlay = CharacterOverlayHost(app, prefs)
 
+    /** 내부 디버그 APK에서만 후보 GLB를 확인한다. 출시 빌드는 반드시 로스터를 따른다. */
+    private val internalCandidatePreview: Boolean
+        get() = BuildConfig.DEBUG && releaseRoster.entries.isEmpty()
+
     /** 'VR 시작'을 눌러도 되는지. 이 값이 false면 설정 화면은 그대로 남는다. */
     val canStartVr: Boolean
         get() = vrEnabled &&
@@ -176,7 +181,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     val packStatus: String?
         get() = activeCharacterPack?.let { character ->
-            if (character.info?.voicePackId == activePack.id) activePack.name else "연결된 음성 팩을 사용할 수 없어요"
+            when {
+                character.info?.voicePackId == activePack.id -> activePack.name
+                internalCandidatePreview && character.info?.voicePackId == null -> "내부 미리보기 · 기본 음성"
+                else -> "연결된 음성 팩을 사용할 수 없어요"
+            }
         }
 
     val engine = ReactionEngine(
@@ -396,7 +405,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             val failures = ReleaseRoster.eligibilityFailures(entry, character, voicePack)
             if (failures.isNotEmpty()) Log.w(TAG, "출시 로스터 제외 ${entry.characterId}: ${failures.joinToString()}")
         }
-        installedCharacters = releaseRoster.eligibleCharacters(candidateCharacters, candidateVoicePacks)
+        installedCharacters = if (internalCandidatePreview) candidateCharacters
+        else releaseRoster.eligibleCharacters(candidateCharacters, candidateVoicePacks)
         characterPackList = installedCharacters
         activeCharacterPack = characters.active()
         val pairedVoicePack = CharacterVoiceBinding.resolve(activeCharacterPack, installed)
@@ -423,14 +433,16 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (driving || pack.state !is CharacterPackState.Ready) return@onMain
         val voicePackId = pack.info?.voicePackId
         val pairedVoicePack = CharacterVoiceBinding.resolve(pack, installed)
-        if (voicePackId == null || pairedVoicePack == null) {
+        val previewOnly = internalCandidatePreview && voicePackId == null
+        if (!previewOnly && (voicePackId == null || pairedVoicePack == null)) {
             characterPackNotice = "출시 로스터에 연결된 준비된 음성 팩이 없어요"
             Log.e(TAG, "캐릭터 ${pack.id} 선택 거부: voicePackId가 없거나 READY 팩이 없음")
             return@onMain
         }
         val previousVoicePackId = packs.selectedId
         packs.stopAll()
-        packs.select(voicePackId)?.let { why ->
+        val selectedVoicePackId = if (previewOnly) audio.builtinPack.id else voicePackId!!
+        packs.select(selectedVoicePackId)?.let { why ->
             Log.e(TAG, "캐릭터와 음성 팩을 함께 선택하지 못했어요: $why")
             return@onMain
         }
