@@ -20,6 +20,9 @@ enum class VehicleEvent(
     MODE("드라이브 모드 바꾸기", Rank.FLOURISH, 3_000, "😎", "모드 체인지!"),
     TIRE("타이어 공기압 낮음", Rank.STATUS, 60_000, "🥺", "발이 좀 아파…"),
     WARNING("차량 경고", Rank.SAFETY, 10_000, "😐", "차량 경고가 있어요.", neutral = true),
+    LIGHT("조명 변경", Rank.FLOURISH, 0, "💡", "조명 설정이 바뀌었어."),
+    WINDOW("창문 변경", Rank.FLOURISH, 0, "🚘", "창문 설정이 바뀌었어."),
+    DOOR("도어 변경", Rank.FLOURISH, 0, "🚪", "도어 상태가 바뀌었어."),
 }
 
 enum class DropReason { COOLDOWN, PRIORITY, FOCUS, DRIVING_SILENT }

@@ -18,19 +18,36 @@ import com.example.voicecompanion.domain.model.VehicleEvent
 /** Pleos Vehicle SDK의 capability를 먼저 확인하고, 읽기 가능한 신호만 구독한다. */
 class PleosVehicleSource(
     context: Context,
-    private val onEvent: (VehicleEvent) -> Unit,
+    private val onEvent: (VehicleEvent, Boolean) -> Unit,
     private val onStatus: (String) -> Unit,
     private val onCatalog: (List<com.example.voicecompanion.domain.model.VehicleDataState>) -> Unit,
 ) {
     private val vehicle = Vehicle(context.applicationContext)
     private val undo = mutableListOf<() -> Unit>()
+    private val undoLock = Any()
     private val pendingLock = Any()
     private var pendingCapabilities = 0
     private var completedCapabilities = 0
+    private var expectedCapabilities = 0
+    private var capabilityLaunchFinished = false
     private var stopRequested = false
     private var released = false
     private var started = false
     private val states = VehicleStateRepository(onCatalog, onEvent)
+    private val capabilityRequests = VehicleCapabilityRequests(
+        begin = ::beginCapability,
+        finish = ::capabilityFinished,
+        isStopped = ::isStopped,
+        markUnavailable = { definition, availability, detail ->
+            states.registerDefinition(definition)
+            if (availability == VehicleAvailability.UNSUPPORTED) states.markUnsupported(definition.dataKey, detail)
+            else states.markError(definition.dataKey, detail)
+        },
+        onError = { definition, error ->
+            states.registerDefinition(definition)
+            capabilityError(definition.dataKey, definition.displayName, error)
+        },
+    )
     @Volatile private var summary = "시작 전"
     private val failures = LinkedHashSet<String>()
 
@@ -81,6 +98,16 @@ class PleosVehicleSource(
             register = ::watchDrivingMode,
         )
         checkSeatBeltCapabilities()
+        val convenience = PleosConvenienceSubscriptions(
+            vehicle = vehicle,
+            states = states,
+            capabilities = capabilityRequests,
+            addUndo = ::addUndo,
+            onFailure = { name, error -> recordFailure(name, error) },
+            stopped = ::isStopped,
+        )
+        convenience.start()
+        finishCapabilityLaunch()
     }
 
     private fun checkCapability(
@@ -158,28 +185,52 @@ class PleosVehicleSource(
 
     private fun capabilityError(dataKey: String, name: String, e: Exception) {
         val detail = if (e is SecurityException) "권한 오류 · ${describe(e)}" else "서비스 오류 · ${describe(e)}"
+        states.registerDefinition(VehicleDataCatalog.definitions.firstOrNull { it.dataKey == dataKey }
+            ?: com.example.voicecompanion.domain.model.VehicleDataCatalog.convenience(
+                dataKey, name, com.example.voicecompanion.domain.model.VehicleDomain.CONVENIENCE,
+                "listener", "", com.example.voicecompanion.domain.model.VehicleValueType.ENUM, VehicleEvent.LIGHT,
+            ))
         states.markError(dataKey, detail)
+        recordFailure(name, e)
+        publish()
+    }
+
+    private fun recordFailure(name: String, e: Exception) {
         synchronized(failures) { failures += "$name(${describe(e)})" }
         publish()
     }
 
-    private fun beginCapability() = synchronized(pendingLock) { pendingCapabilities++ }
+    private fun beginCapability() = synchronized(pendingLock) {
+        pendingCapabilities++
+        expectedCapabilities++
+    }
+
+    private fun finishCapabilityLaunch() {
+        val allChecked = synchronized(pendingLock) {
+            capabilityLaunchFinished = true
+            completedCapabilities == expectedCapabilities
+        }
+        if (allChecked) publishCapabilitySummary()
+    }
 
     private fun capabilityFinished() {
         val (shouldRelease, allChecked) = synchronized(pendingLock) {
             pendingCapabilities = (pendingCapabilities - 1).coerceAtLeast(0)
             completedCapabilities++
-            (stopRequested && pendingCapabilities == 0 && !released) to (completedCapabilities == 4)
+            (stopRequested && pendingCapabilities == 0 && !released) to
+                (capabilityLaunchFinished && completedCapabilities == expectedCapabilities)
         }
-        if (allChecked) {
-            val snapshot = states.snapshot()
-            val active = snapshot.count { it.availability == VehicleAvailability.ACTIVE }
-            val unsupported = snapshot.count { it.availability == VehicleAvailability.UNSUPPORTED }
-            val errors = snapshot.count { it.availability == VehicleAvailability.ERROR }
-            summary = "상태 확인 완료 · 수신 $active · 미지원 $unsupported · 오류 $errors"
-            publish()
-        }
+        if (allChecked) publishCapabilitySummary()
         if (shouldRelease) releaseVehicle()
+    }
+
+    private fun publishCapabilitySummary() {
+        val snapshot = states.snapshot()
+        val active = snapshot.count { it.availability == VehicleAvailability.ACTIVE }
+        val unsupported = snapshot.count { it.availability == VehicleAvailability.UNSUPPORTED }
+        val errors = snapshot.count { it.availability == VehicleAvailability.ERROR }
+        summary = "상태 확인 완료 · 수신 $active · 미지원 $unsupported · 오류 $errors"
+        publish()
     }
 
     private fun isStopped() = synchronized(pendingLock) { stopRequested }
@@ -200,7 +251,7 @@ class PleosVehicleSource(
             override fun onFailed(e: Exception) = capabilityError(VehicleDataCatalog.BRAKE, "브레이크", e)
         }
         brake.registerBrakePedalStatus(listener)
-        undo += { brake.unregisterBrakePedalStatus(listener) }
+        addUndo { brake.unregisterBrakePedalStatus(listener) }
     }
 
     private fun watchTurnSignal() {
@@ -210,7 +261,7 @@ class PleosVehicleSource(
             override fun onFailed(e: Exception) = capabilityError(VehicleDataCatalog.TURN_SIGNAL, "방향지시등", e)
         }
         turn.registerTurnSignalState(listener)
-        undo += { turn.unregisterTurnSignalState(listener) }
+        addUndo { turn.unregisterTurnSignalState(listener) }
     }
 
     private fun watchDrivingMode() {
@@ -220,7 +271,7 @@ class PleosVehicleSource(
             override fun onFailed(e: Exception) = capabilityError(VehicleDataCatalog.DRIVING_MODE, "주행 모드", e)
         }
         mode.registerDrivingModeState(listener)
-        undo += { mode.unregisterDrivingModeState(listener) }
+        addUndo { mode.unregisterDrivingModeState(listener) }
     }
 
     private fun watchSeatBelt(seat: SeatValue, dataKey: String) {
@@ -231,7 +282,7 @@ class PleosVehicleSource(
             override fun onFailed(e: Exception) = capabilityError(dataKey, seatLabel(seat), e)
         }
         safety.registerSeatBeltNotBuckledWarning(area, listener)
-        undo += { safety.unregisterSeatBeltNotBuckledWarning(area, listener) }
+        addUndo { safety.unregisterSeatBeltNotBuckledWarning(area, listener) }
     }
 
     private fun seatKey(seat: SeatValue) = when (seat) {
@@ -243,8 +294,9 @@ class PleosVehicleSource(
 
     fun stop() {
         if (!started) return
-        undo.forEach { runCatching(it) }
-        undo.clear()
+        val cancellations = synchronized(undoLock) { undo.toList().also { undo.clear() } }
+        cancellations.forEach { runCatching(it) }
+        states.close()
         val shouldRelease = synchronized(pendingLock) {
             stopRequested = true
             pendingCapabilities == 0 && !released
@@ -256,6 +308,13 @@ class PleosVehicleSource(
     private fun releaseVehicle() {
         synchronized(pendingLock) { if (released) return else released = true }
         runCatching { vehicle.release() }
+    }
+
+    private fun addUndo(unregister: () -> Unit) {
+        val stopNow = synchronized(undoLock) {
+            if (isStopped()) true else { undo += unregister; false }
+        }
+        if (stopNow) runCatching(unregister)
     }
 
     private val AccessType.canRead: Boolean get() = this == AccessType.READ || this == AccessType.READ_WRITE

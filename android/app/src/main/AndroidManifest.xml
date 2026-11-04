@@ -6,6 +6,8 @@
     <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
     <uses-permission android:name="pleos.car.permission.CAR_LIGHTS" />
     <uses-permission android:name="pleos.car.permission.CAR_SAFETY" />
+    <uses-permission android:name="pleos.car.permission.CAR_WINDOWS" />
+    <uses-permission android:name="pleos.car.permission.CAR_DOORS" />
 
     <!-- Pleos TextToSpeech SDK(음성) 퍼미션. Pleos 서비스가 정의한 normal 퍼미션이다. 위 읽기 퍼미션과 마찬가지로 승인 범위를 협의해야 한다.
          SDK가 INTERNET(서버 모드용)도 매니페스트 병합으로 끌어온다. -->

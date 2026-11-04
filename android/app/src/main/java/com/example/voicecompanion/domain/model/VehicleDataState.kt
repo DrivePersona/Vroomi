@@ -2,7 +2,9 @@ package com.example.voicecompanion.domain.model
 
 enum class VehicleDomain { MOTION, CONVENIENCE, SAFETY }
 
-enum class VehicleValueType { BOOLEAN, ENUM }
+enum class VehicleValueType { BOOLEAN, ENUM, INTEGER, COLOR }
+
+enum class VehicleReactionPolicy { CHANGE, BRIGHTNESS_BUCKET, POSITION_BUCKET }
 
 enum class VehicleAvailability { CHECKING, ACTIVE, UNSUPPORTED, ERROR }
 
@@ -13,6 +15,10 @@ data class VehicleDataDefinition(
     val capability: String,
     val permission: String,
     val valueType: VehicleValueType,
+    val reactionEvent: VehicleEvent? = null,
+    val reactionPolicy: VehicleReactionPolicy? = null,
+    val cooldownMs: Long = 2_500,
+    val allowWhileDriving: Boolean = true,
 )
 
 data class VehicleDataState(
@@ -29,6 +35,27 @@ object VehicleDataCatalog {
     const val DRIVING_MODE = "driving-mode-state"
     const val SEAT_BELT_LEFT = "seat-belt-not-buckled-warning:ROW_1_LEFT"
     const val SEAT_BELT_RIGHT = "seat-belt-not-buckled-warning:ROW_1_RIGHT"
+
+    fun convenience(
+        dataKey: String,
+        displayName: String,
+        domain: VehicleDomain,
+        capability: String,
+        permission: String,
+        valueType: VehicleValueType,
+        event: VehicleEvent,
+        policy: VehicleReactionPolicy = VehicleReactionPolicy.CHANGE,
+    ) = VehicleDataDefinition(
+        dataKey = dataKey,
+        displayName = displayName,
+        domain = domain,
+        capability = capability,
+        permission = permission,
+        valueType = valueType,
+        reactionEvent = event,
+        reactionPolicy = policy,
+        allowWhileDriving = false,
+    )
 
     val definitions = listOf(
         VehicleDataDefinition(BRAKE, "브레이크 페달", VehicleDomain.MOTION, "checkBrakePedalStatusCapabilities", "pleos.car.permission.CAR_DRIVE", VehicleValueType.BOOLEAN),
