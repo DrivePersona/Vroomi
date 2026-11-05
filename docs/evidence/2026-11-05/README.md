@@ -1,22 +1,24 @@
 # Pleos AVD and release SDK verification evidence
 
-## Real Pleos runtime smoke test
+## Fresh app build and tests
 
-- Device: Pleos Connect API 34 AVD `Pleos_Connect_API_34_v2_1`, Android user 10.
-- App: existing `com.example.voicecompanion.review` reviewDebug APK; MainActivity was active during the vehicle callback checks.
-- Brake: Virtual Console 0% → 70%; Pleos broadcasts `BRAKE_PEDAL_STATUS=true` to the app. `pleos-vhal-brake-test.png` shows the real app's Vehicle Data Debug state. Reset to 0%.
-- Turn signal: Virtual Console `Off` → `BlinkLeft`; Pleos broadcasts `TURN_SIGNAL_STATE=2` to the app. The Pleos TTS service logs the app speech text `깜빡이 켰어~`. `pleos-turn-signal-active.png` captures the active signal and Pleos camera preview; `pleos-turn-signal-test.png` captures the app after signal was reset to `Off`.
-- Both controls were returned to their idle state after capture. These checks confirm vehicle callbacks and the default TTS path only; they do not validate character-pack clip selection, approved content, or gesture playback.
+- Built runtime AARs from the checked-out voice-pack and character-pack SDK sources and published them to local Maven only. The app was then tested and built against those exact local artifacts; no package was published to GitHub Packages.
+- App: `:app:testReviewDebugUnitTest` passed, 58 tests; `:app:assembleReviewDebug` passed.
+- App test APK: `com.example.voicecompanion.review`, version name `0.1.0-review`, installed on Android user 10.
+- `pleos-voice-companion` scripts: `npm test`, 26 passed.
+- `voice-pack-sdk`: `gradlew test`, 59 Debug + 59 Release passed.
+- `character-pack-sdk`: `gradlew test`, 14 Debug + 14 Release passed.
 
-## Automated test results
+## Real Pleos vehicle-event smoke test
 
-| Project | Command | Result |
-|---|---|---|
-| pleos-voice-companion | `npm test` | 26 passed, 0 failed |
-| voice-pack-sdk | `gradlew test` | 59 Debug + 59 Release passed, 0 failed |
-| character-pack-sdk | `gradlew test` | 14 Debug + 14 Release passed, 0 failed |
+- Device: Pleos Connect API 34 AVD `Pleos_Connect_API_34_v2_1`.
+- Brake: Virtual Console 0% → 70%; Pleos broadcasts `BRAKE_PEDAL_STATUS=true` to the freshly rebuilt app and its TTS service logs `으앗!`. `pleos-vhal-brake-test.png` shows the app's Vehicle Data Debug state.
+- Turn signal: Virtual Console Off → BlinkLeft; Pleos broadcasts `TURN_SIGNAL_STATE=2` to the app and its TTS service logs `깜빡이 켰어~`. `pleos-turn-signal-active.png` shows the active indicator and camera preview; the camera preview is a Pleos platform response to the turn signal.
+- `pleos-review-debug-final.png` shows the app after reset. Gear P, brake 0%, and turn signal Off were verified after the test.
+- Raw callback/TTS excerpts are in `brake-log.txt` and `turn-signal-log.txt`.
 
-## Remaining limits
+## Scope and limits
 
-- A fresh `:app:testReviewDebugUnitTest` could not resolve private `voicepack-runtime:0.4.0` and `characterpack-runtime:0.3.0` from GitHub Packages (HTTP 401). The run used the already available reviewDebug APK.
-- Release roster, approved voice text/audio, the full 13-state playback, character-to-voice binding, and animated GLB gestures were not proven by this runtime smoke test. Keep the related issues open until the relevant approved assets and runtime checks are available.
+These AVD checks verify real VHAL callback delivery and the default Pleos TTS path. The public review APK has no approved character or voice content AAR, so this does not validate character-specific WAV playback, a populated release roster, all 13 approved clips, or GLB gesture rendering. Keep those acceptance criteria open until the release assets and rights approvals exist.
+
+GitHub Packages direct access from this workstation returns HTTP 401. The local Maven builds let the app tests and APK build run without changing repository dependencies or publishing artifacts.
