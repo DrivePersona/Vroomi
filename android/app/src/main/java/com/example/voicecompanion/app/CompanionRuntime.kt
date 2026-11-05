@@ -22,7 +22,6 @@ import com.example.voicecompanion.app.model.CompanionUiState
 import com.example.voicecompanion.app.model.ReactionLogItem
 import com.example.voicecompanion.app.model.VoiceDialogueRow
 import com.example.voicecompanion.app.release.ReleaseRoster
-import com.example.voicecompanion.app.release.CharacterVoiceBinding
 import com.example.voicecompanion.app.release.CharacterDialogueMatrix
 import com.example.voicecompanion.app.release.CharacterGestureResolver
 import com.example.voicecompanion.ui.overlay.CharacterOverlayHost
@@ -143,7 +142,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private var previewSeq = -1 // 주행 시작 시 진행 중인 대사 미리듣기를 끊는다
     private var gestureStart: Runnable? = null
 
-    // 선택된 캐릭터의 manifest voicePackId가 음성 팩을 자동으로 결정한다.
+    // 출시 캐릭터는 manifest voicePackId, 내부 후보는 previewVoicePackId로 음성 팩을 결정한다.
     var activePack by mutableStateOf(audio.builtinPack)
         private set
     private var packsLoaded = false
@@ -181,9 +180,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     val packStatus: String?
         get() = activeCharacterPack?.let { character ->
+            val linkedId = linkedVoicePackId(character)
             when {
-                character.info?.voicePackId == activePack.id -> activePack.name
-                internalCandidatePreview && character.info?.voicePackId == null -> "내부 미리보기 · 기본 음성"
+                linkedId == activePack.id && character.info?.voicePackId != null -> activePack.name
+                internalCandidatePreview && linkedId == activePack.id -> "내부 미리보기 · ${activePack.name}"
+                internalCandidatePreview && linkedId == null -> "내부 미리보기 · 기본 음성"
                 else -> "연결된 음성 팩을 사용할 수 없어요"
             }
         }
@@ -383,22 +384,27 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     }
 
     private fun dialogueRows(): List<VoiceDialogueRow> {
-        return CharacterDialogueMatrix.rows(activeCharacterPack?.info?.voicePackId, activePack)
+        return CharacterDialogueMatrix.rows(linkedVoicePackId(activeCharacterPack), activePack)
     }
+
+    private fun linkedVoicePackId(character: CharacterPack?): String? = character?.info?.voicePackId
+        ?: character?.info?.previewVoicePackId?.takeIf { internalCandidatePreview }
 
     override fun clearLogs() = logs.clear()
 
     // ---- 음성 팩 ----
     /** 선택기의 상태를 화면 상태로 옮기고 대사를 다시 채운다. 설치된 팩을 읽은 뒤와 팩을 고른 뒤에 부른다. */
     private fun refreshPacks() {
-        installed = releaseRoster.eligibleVoicePacks(candidateCharacters, candidateVoicePacks)
+        installed = if (internalCandidatePreview) candidateVoicePacks
+        else releaseRoster.eligibleVoicePacks(candidateCharacters, candidateVoicePacks)
         activePack = packs.active()
         refreshLines()
     }
 
     // ---- 캐릭터 팩 ----
     private fun refreshCharacterPacks() {
-        installed = releaseRoster.eligibleVoicePacks(candidateCharacters, candidateVoicePacks)
+        installed = if (internalCandidatePreview) candidateVoicePacks
+        else releaseRoster.eligibleVoicePacks(candidateCharacters, candidateVoicePacks)
         releaseRoster.entries.forEach { entry ->
             val character = candidateCharacters.firstOrNull { it.id == entry.characterId }
             val voicePack = candidateVoicePacks.firstOrNull { it.id == entry.voicePackId }
@@ -409,7 +415,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         else releaseRoster.eligibleCharacters(candidateCharacters, candidateVoicePacks)
         characterPackList = installedCharacters
         activeCharacterPack = characters.active()
-        val pairedVoicePack = CharacterVoiceBinding.resolve(activeCharacterPack, installed)
+        val pairedVoicePack = linkedVoicePackId(activeCharacterPack)?.let { id -> installed.firstOrNull { it.id == id } }
         if (pairedVoicePack != null) {
             packs.select(pairedVoicePack.id)
         } else {
@@ -431,9 +437,9 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     override fun selectCharacterPack(id: String) = onMain {
         val pack = characterPackList.firstOrNull { it.id == id } ?: return@onMain
         if (driving || pack.state !is CharacterPackState.Ready) return@onMain
-        val voicePackId = pack.info?.voicePackId
-        val pairedVoicePack = CharacterVoiceBinding.resolve(pack, installed)
-        val previewOnly = internalCandidatePreview && voicePackId == null
+        val voicePackId = linkedVoicePackId(pack)
+        val pairedVoicePack = voicePackId?.let { id -> installed.firstOrNull { it.id == id } }
+        val previewOnly = internalCandidatePreview && pack.info?.voicePackId == null
         if (!previewOnly && (voicePackId == null || pairedVoicePack == null)) {
             characterPackNotice = "출시 로스터에 연결된 준비된 음성 팩이 없어요"
             Log.e(TAG, "캐릭터 ${pack.id} 선택 거부: voicePackId가 없거나 READY 팩이 없음")
@@ -441,7 +447,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         }
         val previousVoicePackId = packs.selectedId
         packs.stopAll()
-        val selectedVoicePackId = if (previewOnly) audio.builtinPack.id else voicePackId!!
+        val selectedVoicePackId = if (voicePackId != null) voicePackId else audio.builtinPack.id
         packs.select(selectedVoicePackId)?.let { why ->
             Log.e(TAG, "캐릭터와 음성 팩을 함께 선택하지 못했어요: $why")
             return@onMain
@@ -524,7 +530,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     /** One-shot playback for the exact selected-pack event and zero-based clip variant. */
     override fun previewDialogue(eventId: String, variantIndex: Int) = onMain {
-        if (driving || activeCharacterPack?.info?.voicePackId != activePack.id) return@onMain
+        if (driving || linkedVoicePackId(activeCharacterPack) != activePack.id) return@onMain
         if (variantIndex !in 0 until activePack.variantCount(eventId)) return@onMain
         val isGreeting = eventId == GREETING_EVENT
         if (!isGreeting && !ReleaseRoster.REQUIRED_VOICE_EVENT_IDS.contains(eventId)) return@onMain

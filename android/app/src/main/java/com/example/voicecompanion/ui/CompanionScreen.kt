@@ -307,15 +307,19 @@ private fun CustomCard(state: CompanionUiState, onTouch: (CompanionTouch) -> Uni
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text("${variant.index + 1}. ${variant.text}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                            TextButton(
-                                onClick = { onTouch(CompanionTouch.DialoguePreviewRequested(row.eventId, variant.index)) },
-                                enabled = !state.driving,
-                            ) { Text("듣기") }
+                            if (row.audioReady) {
+                                TextButton(
+                                    onClick = { onTouch(CompanionTouch.DialoguePreviewRequested(row.eventId, variant.index)) },
+                                    enabled = !state.driving,
+                                ) { Text("듣기") }
+                            } else {
+                                Text("음성 준비 중", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
             }
-            HelperText("선택한 캐릭터의 13개 녹음 대사예요. 듣기를 누르면 해당 WAV를 재생해요.")
+            HelperText("선택한 캐릭터의 13개 대사예요. 준비된 WAV만 듣기를 제공하고, 나머지는 문구 승인 후 음성을 생성해요.")
         } else {
             state.availableEvents.forEach { event ->
                 val fixed = state.fixedLine(event)

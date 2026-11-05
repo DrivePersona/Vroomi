@@ -83,7 +83,9 @@ object VehicleSpeechPolicy {
         get() = eventOutputs.filterValues { it == SpeechOutput.NEUTRAL_CLIP }.keys.map(::canonicalEventId).toSet()
 
     val voicePackClipEventIds: Set<String>
-        get() = characterClipEventIds + neutralClipEventIds
+        // WIPER clips exist in the new character packs and release dialogue matrix, even though
+        // the current vehicle adapter reports wiper state as data only (no reaction event yet).
+        get() = characterClipEventIds + neutralClipEventIds + "WIPER"
 
     val characterGestureEventIds: Set<String>
         get() = characterClipEventIds

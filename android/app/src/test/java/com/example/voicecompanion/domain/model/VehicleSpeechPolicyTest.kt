@@ -10,7 +10,7 @@ class VehicleSpeechPolicyTest {
     fun `every predefined vehicle event has an explicit output and safety never enters gesture manifests`() {
         val clipEvents = VehicleSpeechPolicy.characterClipEventIds
 
-        assertEquals(11, VehicleSpeechPolicy.voicePackClipEventIds.size)
+        assertEquals(12, VehicleSpeechPolicy.voicePackClipEventIds.size)
         assertEquals(setOf(VehicleEvent.WARNING, VehicleEvent.ENERGY_URGENT), VehicleSpeechPolicy.safetyEvents)
         assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains("WARNING"))
         assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains("ENERGY_LOW"))
@@ -19,6 +19,8 @@ class VehicleSpeechPolicyTest {
         assertTrue(clipEvents.contains("AMBIENT_LIGHT"))
         assertTrue(clipEvents.contains("HVAC"))
         assertTrue(clipEvents.contains("CHARGE"))
+        assertTrue(VehicleSpeechPolicy.voicePackClipEventIds.contains("WIPER"))
+        assertFalse(clipEvents.contains("WIPER"))
         assertFalse(clipEvents.contains(VehicleEvent.ENERGY_SUFFICIENT.name))
         assertFalse(clipEvents.contains(VehicleEvent.ENERGY_ATTENTION.name))
     }
@@ -58,7 +60,7 @@ class VehicleSpeechPolicyTest {
         assertEquals("CHARGE", VehicleSpeechPolicy.canonicalEventId(VehicleEvent.CHARGE_PORT))
         assertEquals("ENERGY_LOW", VehicleSpeechPolicy.canonicalEventId(VehicleEvent.ENERGY_URGENT))
         assertEquals(
-            setOf("BRAKE", "TURN", "MODE", "TIRE", "WARNING", "DOOR", "WINDOW", "AMBIENT_LIGHT", "HVAC", "CHARGE", "ENERGY_LOW"),
+            setOf("BRAKE", "TURN", "MODE", "TIRE", "WARNING", "DOOR", "WINDOW", "AMBIENT_LIGHT", "HVAC", "CHARGE", "ENERGY_LOW", "WIPER"),
             VehicleSpeechPolicy.voicePackClipEventIds,
         )
     }

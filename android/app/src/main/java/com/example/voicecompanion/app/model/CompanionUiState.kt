@@ -55,6 +55,8 @@ data class VoiceDialogueRow(
     val eventId: String,
     val label: String,
     val variants: List<VoiceDialogueVariant>,
+    /** False means the caption is approved text but its WAV is not shipped yet. */
+    val audioReady: Boolean = true,
 )
 
 data class VoiceDialogueVariant(val index: Int, val text: String)
