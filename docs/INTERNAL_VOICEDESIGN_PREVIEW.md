@@ -14,13 +14,20 @@ node tools/prepare-internal-voice-preview.cjs `
   --character-repo C:\Users\LENOVO\Documents\DrivePersonaRepos\character-main-verify
 ```
 
-The importer requires 23 VoiceDesign greetings and the 10 character-voiced
-event clips per pack. `WARNING` and `ENERGY_LOW` remain neutral built-in speech
-under the vehicle safety policy. The importer writes only to
+The importer requires the **23 new** VoiceDesign greetings and 10
+character-voiced event clips per pack. These are incremental to the 10 baseline
+voice packs in the SDK; the full internal target remains 33 unique character
+pairs, not 23. `WARNING` and `ENERGY_LOW` remain neutral built-in speech under
+the vehicle safety policy. The importer writes only to
 `android/app/src/internal/assets/voicepacks` and `characterpacks`; these local
 audition assets are git-ignored. Each copied character manifest receives a
 `previewVoicePackId` link, so selecting a candidate character selects its paired
 VoiceDesign WAV pack in the internal flavor.
+
+Before copying, the importer checks that the source matrix still has 33 unique
+character/voice pairs, that all 10 baseline voice packs plus 23 new VoiceDesign
+packs cover that set, and that every target character asset is present. A missing
+pair fails the import instead of silently shrinking the preview catalog.
 
 Build with the local Maven SDK packages if GitHub Packages credentials are not
 available:

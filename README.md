@@ -35,7 +35,7 @@ gpr.user=YOUR_GITHUB_USERNAME
 gpr.key=YOUR_CLASSIC_PAT_WITH_READ_PACKAGES
 ```
 
-The current internal character/voice pairing and 13-slot release contract are documented in [docs/RELEASE_VOICE_CHARACTER_PLAN_V1.md](docs/RELEASE_VOICE_CHARACTER_PLAN_V1.md). The release roster remains an explicit allowlist and stays empty while Meshy character rights or any required audio slot is pending.
+The release target is **33 characters**, with **13 dialogue slots per character** (one greeting plus 12 vehicle states, 429 slots total). The stable character-to-voice mapping is listed in [docs/CHARACTER_TARGET_INVENTORY_V1.csv](docs/CHARACTER_TARGET_INVENTORY_V1.csv), and the current coverage and release blockers are in [docs/RELEASE_VOICE_CHARACTER_PLAN_V1.md](docs/RELEASE_VOICE_CHARACTER_PLAN_V1.md). The 13-slot count is never a character-count limit. The release roster remains an explicit allowlist and stays empty until every listed pack passes its release gates.
 
 Package releases dispatch `voicepack-published` or `characterpack-published` with a version, or `packs-published` with both package versions. The protected `internal-build` workflow resolves private AARs, runs roster/unit validation, assembles the internal release APK, records supplied content metadata in `docs/PACK_RELEASES.md`, and only then opens or refreshes a reviewable PR. Applied versions are a no-op. It never auto-merges. Keep `DRIVEPERSONA_PACKAGES_USER`, `DRIVEPERSONA_PACKAGES_TOKEN`, and the fine-grained `DRIVEPERSONA_SYNC_TOKEN` in the protected environment; the sync token needs `Contents: write` and `Pull requests: write` for this repository. The private SDK publish workflows use the same sync token only to send the dispatch.
 
