@@ -1,10 +1,10 @@
 # Dialogue Matrix v1 — DRAFT
 
-This document is a content draft for issue #16. It contains one row per candidate character and canonical event ID in DIALOGUE_MATRIX_V1.csv (10 candidates × 13 slots = 130 rows). Every row is DRAFT; no text or voice is approved for recording or release.
+This file is an older public content draft for issue #16. It contains 10 characters × 13 dialogue slots = 130 draft rows; it is **not** the product character count. The release target is 33 characters × 13 slots each = 429 slots. See [the stable 33-pair target inventory](CHARACTER_TARGET_INVENTORY_V1.csv) and [the current coverage report](RELEASE_VOICE_CHARACTER_PLAN_V1.md). Every row here is DRAFT; no text or voice is approved for recording or release.
 
 ## Roster and ID status
 
-The ten candidate names and voicePackId values come from issue #16 and voice-pack-sdk#5. Candidate characterIds were matched by display name to the local character-pack-sdk candidate manifests. Those manifests currently have voicePackId=null, commercialUse=false, and a pending license, so this name match is not a release pairing. Issue #3 is still open; none of these entries is asserted to be releaseEligible.
+The ten names below are the first dialogue-discussion subset. This legacy table was assembled by display name and is not a release pairing source; production pairing uses the stable ID pairs in `CHARACTER_TARGET_INVENTORY_V1.csv` and the pack manifests. Do not infer that the target is ten characters from this file.
 
 | Candidate characterId | Display name | Current voicePackId |
 | --- | --- | --- |
@@ -43,7 +43,7 @@ The app adapts its runtime names to these canonical IDs before voice-pack lookup
 
 ## Draft voice personas
 
-Persona descriptions are inferred from the candidate display names because approved character bibles were not found in the public repository. They are short, adult-facing, and avoid imitation of real people or existing commercial characters. Their wording needs content-owner review.
+The persona descriptions in this 10-character draft were inferred from candidate display names because approved character bibles were not found in the public repository. They are short, adult-facing, and avoid imitation of real people or existing commercial characters. Their wording needs content-owner review; they do not replace the 33 per-character profiles in the private voice-pack workstream.
 
 ## Safety and activation notes
 
@@ -52,7 +52,7 @@ Persona descriptions are inferred from the candidate display names because appro
 - BRAKE and TURN are edge-triggered. MODE, TIRE, and WARNING remain inactive until their public Vehicle Service signal/capability is verified.
 - DOOR, WINDOW, AMBIENT_LIGHT, HVAC, and CHARGE are stationary-only. CHARGE start/completion remains inactive until a supported state-change signal exists.
 - WIPER remains silent by default until #12 and #14 explicitly authorize speech.
-- No WAV, model, reference voice, or audition asset is included. Voice generation and packaging must wait for TEXT_APPROVED.
+- No approved WAV, model, reference voice, or audition asset is included in this public draft. Local audition outputs do not count as approved production audio; release packaging still requires TEXT_APPROVED.
 - sourceCapability and drivingPolicy values describe issue #16 intended contract; they do not claim that the current app can observe or speak every slot.
 
 ## Approval and production handoff

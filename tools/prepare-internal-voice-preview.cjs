@@ -16,11 +16,14 @@ if (!voiceRoot || !characterRoot) {
 }
 
 const events = ['BRAKE', 'TURN', 'MODE', 'TIRE', 'DOOR', 'WINDOW', 'AMBIENT_LIGHT', 'HVAC', 'WIPER', 'CHARGE'];
+const expectedTargetCharacterCount = 33;
+const expectedBaselinePackCount = 10;
 const refsRoot = path.join(voiceRoot, 'generated', 'voice-design-references');
 const eventRoot = path.join(voiceRoot, 'generated', 'voicedesign-event-clips');
 const matrix = JSON.parse(fs.readFileSync(path.join(voiceRoot, 'docs', 'RELEASE_DIALOGUE_MATRIX_V1.json'), 'utf8'));
 const candidatesRoot = path.join(characterRoot, 'candidates');
 const contentRoot = path.join(characterRoot, 'characterpack-content', 'src', 'main', 'assets', 'characterpacks');
+const baselineVoiceRoot = path.join(voiceRoot, 'voicepack-content', 'src', 'main', 'assets', 'voicepacks');
 const outVoiceRoot = path.join(appRoot, 'android', 'app', 'src', 'internal', 'assets', 'voicepacks');
 const outCharacterRoot = path.join(appRoot, 'android', 'app', 'src', 'internal', 'assets', 'characterpacks');
 
@@ -174,8 +177,28 @@ function createCharacterPack(pack) {
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 }
 
+const characterIds = new Set(matrix.packs.map((pack) => pack.characterId));
+const voicePackIds = new Set(matrix.packs.map((pack) => pack.id));
+if (matrix.packs.length !== expectedTargetCharacterCount || characterIds.size !== expectedTargetCharacterCount || voicePackIds.size !== expectedTargetCharacterCount) {
+  throw new Error(`Expected ${expectedTargetCharacterCount} unique character/voice pairs in the matrix, found ${matrix.packs.length} rows, ${characterIds.size} characters, and ${voicePackIds.size} voice packs`);
+}
+
+const baselinePacks = matrix.packs.filter((pack) => fs.existsSync(path.join(baselineVoiceRoot, pack.id, 'manifest.json')));
+if (baselinePacks.length !== expectedBaselinePackCount) {
+  throw new Error(`Expected ${expectedBaselinePackCount} baseline SDK voice packs, found ${baselinePacks.length}`);
+}
+
 const packs = matrix.packs.filter((pack) => fs.existsSync(path.join(refsRoot, pack.id, 'greeting.wav')));
-if (packs.length !== 23) throw new Error(`Expected 23 new VoiceDesign packs, found ${packs.length}`);
+if (packs.length !== expectedTargetCharacterCount - expectedBaselinePackCount) {
+  throw new Error(`Expected ${expectedTargetCharacterCount - expectedBaselinePackCount} new VoiceDesign packs, found ${packs.length}`);
+}
+const coveredVoicePackIds = new Set([...baselinePacks.map((pack) => pack.id), ...packs.map((pack) => pack.id)]);
+if (coveredVoicePackIds.size !== expectedTargetCharacterCount) {
+  throw new Error(`Baseline and new VoiceDesign assets cover ${coveredVoicePackIds.size}/${expectedTargetCharacterCount} target voice packs`);
+}
+const missingCharacters = matrix.packs.filter((pack) => !findCharacter(pack.characterId)).map((pack) => pack.characterId);
+if (missingCharacters.length) throw new Error(`Missing target character assets: ${missingCharacters.join(', ')}`);
+
 for (const pack of packs) preflight(pack);
 fs.mkdirSync(outVoiceRoot, { recursive: true });
 fs.mkdirSync(outCharacterRoot, { recursive: true });
@@ -184,4 +207,4 @@ for (const pack of packs) {
   createCharacterPack(pack);
   console.log(`prepared ${pack.characterId} -> ${pack.id}`);
 }
-console.log(`Prepared ${packs.length} internal VoiceDesign character/voice pairs under android/app/src/internal/assets.`);
+console.log(`Target inventory: ${coveredVoicePackIds.size} pairs (${baselinePacks.length} baseline + ${packs.length} new). Prepared ${packs.length} new internal VoiceDesign pairs under android/app/src/internal/assets.`);
