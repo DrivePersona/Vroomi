@@ -5,7 +5,7 @@
 - Built runtime AARs from the checked-out voice-pack and character-pack SDK sources and published them to local Maven only. The app was then tested and built against those exact local artifacts; no package was published to GitHub Packages.
 - App: `:app:testReviewDebugUnitTest` passed, 58 tests; `:app:assembleReviewDebug` passed.
 - App test APK: `com.example.voicecompanion.review`, version name `0.1.0-review`, installed on Android user 10.
-- `pleos-voice-companion` scripts: `npm test`, 26 passed.
+- `pleos-voice-companion` scripts:`npm test`, 26 passed.
 - `voice-pack-sdk`: `gradlew test`, 59 Debug + 59 Release passed.
 - `character-pack-sdk`: `gradlew test`, 14 Debug + 14 Release passed.
 
