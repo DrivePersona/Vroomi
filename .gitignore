@@ -21,4 +21,7 @@ harness/qwen-voice-previews/
 # Non-public pack assets and authoring sources live in the private SDK repositories.
 android/app/src/debug/assets/voicepacks/ai.bori.qwen/
 android/app/src/debug/assets/characterpacks/
+# Locally assembled AI voice and character auditions are internal-only test inputs.
+android/app/src/internal/assets/voicepacks/
+android/app/src/internal/assets/characterpacks/
 gradle-local.properties
