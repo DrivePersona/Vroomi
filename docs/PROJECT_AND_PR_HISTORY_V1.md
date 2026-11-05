@@ -3,7 +3,7 @@
 **조회 기준:** GitHub 저장소 목록 및 PR/issue 상태, 2026-11-05
 **저장소:** `DrivePersona/pleos-voice-companion`(public), `DrivePersona/voice-pack-sdk`(private), `DrivePersona/character-pack-sdk`(private)
 
-조회된 PR은 **45건**이다: public 앱 22건 병합, private voice SDK 7건 병합 + 1건 종료/미병합, private character SDK 15건 병합. 총 **44건 병합, 1건 미병합 종료**다. 별도로 관련 저장소에 열린 이슈는 앱 9건, voice SDK 1건, character SDK 2건이다(2026-11-05 기준, 앱 #36–#39 추가 후).
+조회된 PR은 **46건**이다: public 앱 22건 병합 + 1건 진행 중, private voice SDK 7건 병합 + 1건 종료/미병합, private character SDK 15건 병합. 총 **44건 병합, 1건 미병합 종료, 1건 진행 중**이다. 별도로 관련 저장소에 열린 이슈는 앱 9건, voice SDK 1건, character SDK 2건이다(2026-11-05 기준).
 
 ## 1. 저장소 역할
 
@@ -31,7 +31,7 @@
 
 ## 3. Public 앱 PR 기록
 
-모든 항목은 GitHub 조회 시 `MERGED`였다. GitHub PR 제목은 원문으로 유지한다.
+GitHub PR 제목은 원문으로 유지했다. 조회 시 #1–#35는 `MERGED`, #40은 `OPEN`이다.
 
 | PR | 병합 작업 | 사용자 흐름상 결과 |
 | --- | --- | --- |
@@ -57,6 +57,7 @@
 | [#33](https://github.com/DrivePersona/pleos-voice-companion/pull/33) | `Expose character picker and internal candidate preview` | 내부 후보 선택 UI |
 | [#34](https://github.com/DrivePersona/pleos-voice-companion/pull/34) | `Pair internal characters with voices and expose 13-slot dialogue status` | 내부 캐릭터/음성 매칭 및 13-slot 표시 |
 | [#35](https://github.com/DrivePersona/pleos-voice-companion/pull/35) | `docs: clarify 33-character release target` | 33-character target/CSV와 importer 검사 명확화 |
+| [#40](https://github.com/DrivePersona/pleos-voice-companion/pull/40) | `docs: define overlay-first companion flow` | WindowManager 중심 PRD/flow/wireframe과 인터랙티브 목업. 현재 리뷰 중 |
 
 조회 결과 main repo에는 PR #3–14와 #16이 등록된 PR로 보이지 않았다. 이 문서는 해당 작업의 존재를 추정하거나 번호를 채워 쓰지 않는다.
 
