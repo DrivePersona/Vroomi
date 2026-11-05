@@ -37,6 +37,14 @@ gpr.key=YOUR_CLASSIC_PAT_WITH_READ_PACKAGES
 
 The release target is **33 characters**, with **13 dialogue slots per character** (one greeting plus 12 vehicle states, 429 slots total). The stable character-to-voice mapping is listed in [docs/CHARACTER_TARGET_INVENTORY_V1.csv](docs/CHARACTER_TARGET_INVENTORY_V1.csv), and the current coverage and release blockers are in [docs/RELEASE_VOICE_CHARACTER_PLAN_V1.md](docs/RELEASE_VOICE_CHARACTER_PLAN_V1.md). The 13-slot count is never a character-count limit. The release roster remains an explicit allowlist and stays empty until every listed pack passes its release gates.
 
+## Product and user-flow design
+
+- [Product requirements (PRD v2)](docs/PRODUCT_REQUIREMENTS_V2.md) — product scope, vehicle input contract, safety policy, release criteria, and current constraints.
+- [User flows v2](docs/USER_FLOWS_V2.md) — WindowManager overlay-first startup, avatar gestures, 5+11 acquisition, dialogue, and driving lock.
+- [Wireframes v2](docs/WIREFRAMES_V2.md) — Pleos HMI stays visible while avatar-anchored floating controls and compact overlay sheets handle companion actions.
+- [Interactive overlay-first mockup v2](docs/mockups/voice-companion-flow-v2.html) and [PNG preview](docs/mockups/voice-companion-flow-v2.png) — real Pleos HMI frame/vehicle area with a schematic map underlay replacing the old debug Activity pane; approved roster assets remain unassigned.
+- [Project and PR history](docs/PROJECT_AND_PR_HISTORY_V1.md) — repository roles, merged PR inventory, open work, and evidence gaps across all three repositories.
+
 Package releases dispatch `voicepack-published` or `characterpack-published` with a version, or `packs-published` with both package versions. The protected `internal-build` workflow resolves private AARs, runs roster/unit validation, assembles the internal release APK, records supplied content metadata in `docs/PACK_RELEASES.md`, and only then opens or refreshes a reviewable PR. Applied versions are a no-op. It never auto-merges. Keep `DRIVEPERSONA_PACKAGES_USER`, `DRIVEPERSONA_PACKAGES_TOKEN`, and the fine-grained `DRIVEPERSONA_SYNC_TOKEN` in the protected environment; the sync token needs `Contents: write` and `Pull requests: write` for this repository. The private SDK publish workflows use the same sync token only to send the dispatch.
 
 The protected `internal-android` CI job runs only after main receives a reviewed change and `INTERNAL_PACKAGES_ENABLED` is true. Public pull-request CI never receives package credentials.
