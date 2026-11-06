@@ -20,23 +20,34 @@ The service is a regular started service with `START_STICKY`; no foreground-serv
 
 The receiver runs only after Android boot and user unlock. Android also suppresses boot receivers for a force-stopped package until the user launches the app again. The launcher Activity remains available for explicit recovery and status checks. Missing `SYSTEM_ALERT_WINDOW` access is handled by the existing runtime gate; it does not open settings automatically or launch the Activity.
 
-## Verification attempt — 2026-11-06
+## Verification results — 2026-11-06
+
+Build and unit-test results from this branch:
 
 - `:app:testReviewDebugUnitTest`: **58 passed, 0 failed**.
 - `:app:assembleReviewDebug`: **passed**.
-- `:app:assembleInternalDebug`: **passed** using the already-published local Maven artifacts for the private pack SDKs. The isolated worktree had no GitHub Packages credentials, so a remote dependency-resolution attempt returned HTTP 401; no credentials were added to the repository.
-- Pleos Connect v2.1.0 AVD: two cold-boot attempts were made. The first eventually reached `sys.boot_completed=1`, but the internal app cold start then hit an ActivityManager startup ANR; the captured screen was black and is not valid UI evidence. The second boot did not reach `sys.boot_completed` within 180 seconds. Logs showed `network eth0 is not ready yet`, Pleos vehicle service panics, `system_server`/ActivityManager unavailable, and both `eth0` and `wlan0` down. Enabling Wi-Fi was not possible because the Wi-Fi system service was unavailable. The temporary AVD CPU-core setting was restored to 6; app data was not wiped.
-- Because the AVD did not produce a stable user session, the boot receiver's `BOOT_COMPLETED` delivery, overlay-only rendering, parked/driving transitions, duplicate-window behavior, and the required HMI-plus-character screenshot remain **unverified**. Keep issue #36 open until these target-image checks pass. The failed black-screen capture must not be presented as a successful UI screenshot.
+- `:app:assembleInternalDebug`: **passed** using the already-published local Maven artifacts for the private pack SDKs. This isolated worktree had no GitHub Packages credentials; remote dependency resolution returned HTTP 401, and no credentials were added to the repository.
 
-## Pleos AVD verification
+Pleos Connect v2.1.0 AVD (`Pleos_Connect_v2_1_0`, Android user 10, internal build, overlay app-op allowed):
+
+- **Cold boot:** `BOOT_COMPLETED` was queued behind other system receivers and delivered after the boot queue progressed. `CompanionBootReceiver` started `CompanionRuntimeService` with `START_BACKGROUND`; logs recorded `runtime started`. The service was `startRequested=true`, `MainActivity` was not resumed, and exactly one `VoiceCompanionCharacterOverlay` appeared while the vehicle reported P. The selected GLB rendered over the Pleos HMI without a black surface or clipping. Evidence: [`issue36-pleos-recovered-final.png`](mockups/issue36-pleos-recovered-final.png).
+- **Driving gate through the existing Virtual Console:** selected gear D in `http://127.0.0.1:8088/`. The console reported `DRIVE ACTIVE` at 0 km/h. The companion service remained started, the HMI stayed in front, and the overlay window count changed from 1 to 0. Evidence: [`issue36-pleos-driving.png`](mockups/issue36-pleos-driving.png).
+- **Parked return:** selected P in the same console; it reported `PARKED`. The overlay was still absent in the first check about two seconds later, then returned as one window during the following six-second wait. This is a measured observation window, not a precise latency benchmark; the return delay should be tracked before production release. Evidence: [`issue36-pleos-parked-after-wait.png`](mockups/issue36-pleos-parked-after-wait.png).
+- **Setup and character recovery:** tapping the visible character opened `MainActivity` and removed the overlay window. Pressing `VR 시작` finished the setup Activity and restored one overlay while the Pleos HMI remained resumed. Evidence: [`issue36-pleos-character-tap.png`](mockups/issue36-pleos-character-tap.png) and [`issue36-pleos-restore-final.png`](mockups/issue36-pleos-restore-final.png).
+- **Duplicate check:** after the boot path and the Activity → `VR 시작` path, `dumpsys` showed one active `CompanionRuntimeService` record and one overlay window. A direct shell attempt to start the service twice was rejected because the service is `exported=false`; this was not counted as a repeated-start stress test.
+- **Process-death test:** an app-only crash/restart was not isolated. The AVD disconnected during the `am crash` attempt, so it was cold-booted again; the boot receiver then restored the service and one overlay. This verifies boot recovery again, but does **not** verify Android's `START_STICKY` process-only restart path.
+
+Issue #36 remains open for the unverified process-only sticky restart and a deliberate unknown-`CarUxRestrictions` startup check. Real-vehicle behavior and product approval for `SYSTEM_ALERT_WINDOW` also remain outside this AVD verification.
+
+## Pleos AVD verification record
 
 Use the Pleos Connect AVD only (not a phone AVD). Record the image version and capture a screenshot with the HMI visible, the selected character overlay present, and no companion Activity.
 
 1. Install and launch the internal/debug build once. Select a character, enable VR, and verify that the selected character and overlay preference persist.
 2. Grant overlay access in the emulator setup used for this test. The Pleos image used in earlier checks had no usable permission settings screen, so prior tests used `adb appops`; this is AVD configuration, not a product UI flow.
 3. Cold-boot the AVD. Capture the boot/service log and confirm the receiver starts one runtime service without starting `MainActivity`.
-4. Confirm the character stays hidden until `CarUxRestrictions` reports parked, appears once while parked, and disappears when drive restrictions turn on. Confirm the HMI remains visible.
-5. Start the app explicitly and confirm the recovery screen hides the overlay; tap the overlay and confirm the same screen can be opened again.
+4. **Verified for P ↔ D:** the existing Virtual Console's D control made the overlay disappear while HMI stayed visible; its P control restored one overlay after a short observed delay. The unknown restriction state was not isolated.
+5. **Verified:** tapping the overlay opened the recovery Activity and hid the window; `VR 시작` closed the Activity and restored the overlay.
 
 Useful diagnostics:
 
@@ -46,12 +57,12 @@ adb shell dumpsys activity services com.example.voicecompanion
 adb shell dumpsys window windows
 ```
 
-Record the actual AVD evidence below before closing the related implementation issue:
+Recorded AVD evidence:
 
-- Pleos image / AVD:
-- Boot receiver and service log:
-- HMI plus overlay screenshot:
-- Unknown/driving → parked behavior:
-- Duplicate service/window check:
-- Explicit Activity recovery check:
-- Remaining limitation:
+- Pleos image / AVD: Pleos Connect v2.1.0 / `Pleos_Connect_v2_1_0` / Android user 10.
+- Boot receiver and service log: `CompanionBootReceiver` started `START_BACKGROUND`; service record remained started; no companion Activity was top-resumed.
+- HMI plus overlay screenshot: [`issue36-pleos-recovered-final.png`](mockups/issue36-pleos-recovered-final.png).
+- Driving → parked behavior: D hid the overlay; P restored one overlay after a short delay. Unknown state not isolated.
+- Duplicate service/window check: one service record and one window after boot and Activity recovery; repeated external service start was blocked by `exported=false`.
+- Explicit Activity recovery check: character tap opened settings and hid overlay; `VR 시작` closed settings and restored the overlay.
+- Remaining limitation: process-only `START_STICKY` restart, unknown restriction startup, real vehicle, and Pleos product approval for overlay access.
