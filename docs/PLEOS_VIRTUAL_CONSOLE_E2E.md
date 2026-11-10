@@ -13,6 +13,11 @@ Virtual Console은 별도 차량 에뮬레이터가 아니다. 이미 실행 중
 | 브레이크 | Motion > Brake Pedal: `0 → 70%` | 기록에 `브레이크 밟기`와 `말하기 요청`이 추가됨. 정차 중이면 캐릭터 반응과 음성 재생 시작이 이어짐 |
 | 방향지시등 | Convenience > Turn Signal State: `Off → Left Blink` 또는 `Right Blink` | 기록에 `방향지시등 켜기`와 `말하기 요청`이 추가됨. 정차 중이면 캐릭터 반응과 음성 재생 시작이 이어짐 |
 | 주행 제한 | Motion > Gear: `P → D` | 앱이 주행 상태가 되고 캐릭터/편집 UI가 숨거나 차단됨. 허용된 짧은 상태 음성만 정책에 따라 재생됨 |
+| 외부등 | Convenience > High Beam: `Off → On`, Exterior Lights Mode: `Off → Low beam` / `Tail lamp` | Vehicle 데이터 디버그에서 상향등·하향등·후미등이 `수신 중`이고 ON/OFF로 바뀜. Low beam은 하향등+후미등, Tail lamp는 후미등만 켜짐. 반응·음성 없이 값만 기록함 |
+| 조향각 | Motion > Steering Angle: `0 → 45` | 조향각이 `-45.00`으로 바뀜(콘솔 +45가 VHAL −45.0이라 부호가 반대). 값만 기록함 |
+| 주행거리·남은 주행거리 | Motion > Odometer, Energy > Remaining Range | 값이 바뀜(주행거리 km, 남은 주행거리 m). 콘솔이 주행거리 감소를 막으므로 시험 뒤 되돌릴 수 없고, 에뮬레이터를 콜드 부팅하면 0으로 돌아옴 |
+| 크루즈 | ADAS > Cruise Control State / Target Speed | 목표 속도가 m/s로 바뀜. 상태는 `not_ready`(VHAL −6)·`full_autonomous`(ACTIVATED)일 때만 바뀌고 `ready`·`longitudinal`·`lateral`은 ENABLED로 보임 |
+| 기어 값 | Motion > Gear Selection: `P → D → P` | 기어 항목이 `GEAR_PARK`/`GEAR_DRIVE`로 갱신됨. 정차/주행 판단은 기존 주행 규제(CarUx) 경로 그대로 |
 | 창문 잠금 | Convenience > Window Lock: 잠김/해제 전환 | capability가 지원하는 영역만 활성으로 나타나고, dataKey cooldown으로 반복 반응이 제한됨 |
 | 창문 위치 | Convenience > Window Position: 닫힘 → 중간 → 열림 | 마지막 조작 후 800ms 안정화된 최종 범주에 한 번 반응함 |
 | 앰비언트 밝기 | Convenience > Ambient Brightness: 어두움 → 보통 → 밝음 | 슬라이더 조작 중 반복 발화 없이, 안정화된 밝기 범주에 한 번 반응함 |
@@ -174,6 +179,30 @@ Invoke-WebRequest -Method Put 'http://127.0.0.1:8088/vehicle/controls?brake=0' |
 - [ ] Turn Signal State를 `Off`로 복구했다.
 - [ ] 브레이크와 방향지시등 각각에 대해 Virtual Console 값 변화, 앱 기록, 음성 재생 상태를 함께 캡처했다.
 - [ ] 실패했다면 AVD 버전, APK 버전/패키지, Android 사용자, Virtual Console 상태와 앱 기록을 이슈에 남겼다.
+
+## 앱 없이 신호 확인하기
+
+콘솔 조작이 실제 차량 신호(VHAL)가 되는지는 앱과 무관하게 볼 수 있다. 앱 반응이 없을 때 "콘솔 → VHAL"과 "앱" 중 어디가 문제인지 가르는 데 쓴다. 현재 수신 가능한 신호의 전체 목록은 [VEHICLE_SIGNALS.md](VEHICLE_SIGNALS.md)와 [vehicle-signals.xlsx](vehicle-signals.xlsx)에 있다.
+
+| 층 | 무엇을 보나 | 방법 |
+| --- | --- | --- |
+| A 콘솔 | Virtual Console의 상태 | `PUT <write_endpoint>?<field>=<값>`으로 조작하고 `GET /vehicle/state`로 읽는다 |
+| B VHAL | Android VehicleHal이 받은 속성 이벤트(앱·Pleos SDK와 무관) | `adb shell dumpsys car_service --services VehicleHal`의 `All Events` |
+| C Pleos 서비스 | Pleos 차량 서비스가 구독자에게 보낸 이벤트 | logcat의 `collect event: PropertyEventItem(packageNames=[…])` |
+| D 앱 | 앱의 `Vehicle 데이터 디버그` | 화면 또는 `uiautomator dump` |
+
+B층은 조작 전후로 덤프를 떠서 속성별 `event count`와 `lastEvent`(값·영역)를 비교한다.
+
+```powershell
+$adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+& $adb shell dumpsys car_service --services VehicleHal | Select-String 'lastEvent: Property:0x11400e01'   # 상향등
+```
+
+- 콘솔 REST는 브라우저 하트비트(`POST /browser/session?client=<id>`를 1초마다)가 있어야 응답한다. 없으면 `503 emulator_inactive`.
+- 쓰기 형식은 콘솔 프런트엔드 규칙 그대로다: `PUT /vehicle/lights?feature=high_beam&value=true`, `PUT /vehicle/reading-lights?value=true&area=front_left`, `PUT /vehicle/controls?steering=45`.
+- 이 이미지는 `user` 빌드라 `cmd car_service ...`는 막혀 있다(`requires non-user build`). `dumpsys car_service --services ...`는 된다.
+- B층에는 구독자가 필요하다. on-change 속성은 car service에 구독자가 있어야 VHAL 이벤트가 남는다. 앱을 끄면 독서등처럼 구독자가 앱뿐인 속성은 B에서 보이지 않는다.
+- 조향각은 콘솔 +45가 VHAL −45.0이다(부호가 반대).
 
 ## 구현상 주의할 점
 

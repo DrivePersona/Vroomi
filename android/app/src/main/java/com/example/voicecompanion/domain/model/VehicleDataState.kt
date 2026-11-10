@@ -2,7 +2,7 @@ package com.example.voicecompanion.domain.model
 
 enum class VehicleDomain { MOTION, CONVENIENCE, SAFETY }
 
-enum class VehicleValueType { BOOLEAN, ENUM, INTEGER, COLOR }
+enum class VehicleValueType { BOOLEAN, ENUM, INTEGER, COLOR, DECIMAL }
 
 enum class VehicleReactionPolicy { CHANGE, DEBOUNCED_CHANGE, BRIGHTNESS_BUCKET, POSITION_BUCKET }
 
