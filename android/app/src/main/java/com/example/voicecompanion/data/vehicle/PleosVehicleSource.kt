@@ -123,6 +123,22 @@ class PleosVehicleSource(
             onFailure = { name, error -> recordFailure(name, error) },
             stopped = ::isStopped,
         ).start()
+        PleosLampSubscriptions(
+            vehicle = vehicle,
+            states = states,
+            capabilities = capabilityRequests,
+            addUndo = ::addUndo,
+            onFailure = { name, error -> recordFailure(name, error) },
+            stopped = ::isStopped,
+        ).start()
+        PleosDriveSubscriptions(
+            vehicle = vehicle,
+            states = states,
+            capabilities = capabilityRequests,
+            addUndo = ::addUndo,
+            onFailure = { name, error -> recordFailure(name, error) },
+            stopped = ::isStopped,
+        ).start()
         finishCapabilityLaunch()
     }
 
