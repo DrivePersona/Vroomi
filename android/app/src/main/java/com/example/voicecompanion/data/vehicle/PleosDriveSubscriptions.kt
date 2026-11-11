@@ -12,6 +12,9 @@ import ai.pleos.playground.vehicle.listener.RangeRemainingListener
 import ai.pleos.playground.vehicle.listener.SteeringWheelAngleListener
 import com.example.voicecompanion.domain.model.VehicleDataDefinition
 import com.example.voicecompanion.domain.model.VehicleDomain
+import com.example.voicecompanion.domain.model.VehicleEvent
+import com.example.voicecompanion.domain.model.VehicleReactionPolicy
+import com.example.voicecompanion.domain.model.VehicleValueRule
 import com.example.voicecompanion.domain.model.VehicleValueType
 import java.util.Locale
 
@@ -19,8 +22,9 @@ import java.util.Locale
  * Capability-gated, read-only driving signals (CAR_DRIVE): steering wheel angle, odometer, remaining range,
  * cruise control state and target speed, and gear selection.
  *
- * Values are only recorded in [VehicleStateRepository]. No reaction event or policy is attached, so none of these
- * signals makes the companion speak or gesture. Every definition is registered up front (see [PleosLampSubscriptions]).
+ * Values are recorded in [VehicleStateRepository]. Each signal also speaks one short line in the built-in voice (no
+ * gesture) when it meets the rule in [SignalReactionRules]; the thresholds there are provisional. Every definition is
+ * registered up front (see [PleosLampSubscriptions]).
  */
 internal class PleosDriveSubscriptions(
     private val vehicle: Vehicle,
@@ -159,21 +163,37 @@ internal class PleosDriveSubscriptions(
         const val GEAR = "gear-selection"
 
         val definitions: List<VehicleDataDefinition> = listOf(
-            drive(STEERING_ANGLE, "조향각", "checkSteeringWheelAngleCapabilities", VehicleValueType.DECIMAL),
-            drive(DISTANCE_DRIVEN, "주행거리", "checkCurrentDistanceDrivenCapabilities", VehicleValueType.DECIMAL),
-            drive(RANGE_REMAINING, "남은 주행거리", "(none) registerRangeRemainingListener", VehicleValueType.DECIMAL),
-            drive(CRUISE_STATE, "크루즈 상태", "checkCruiseControlStateCapabilities", VehicleValueType.ENUM),
-            drive(CRUISE_TARGET_SPEED, "크루즈 목표 속도", "checkCruiseControlTargetSpeedCapabilities", VehicleValueType.DECIMAL),
-            drive(GEAR, "기어", "(none) registerGearSelection", VehicleValueType.ENUM),
+            drive(STEERING_ANGLE, "조향각", "checkSteeringWheelAngleCapabilities", VehicleValueType.DECIMAL, rule = SignalReactionRules.steeringBig),
+            drive(DISTANCE_DRIVEN, "주행거리", "checkCurrentDistanceDrivenCapabilities", VehicleValueType.DECIMAL, rule = SignalReactionRules.odometerMilestone),
+            drive(RANGE_REMAINING, "남은 주행거리", "(none) registerRangeRemainingListener", VehicleValueType.DECIMAL, rule = SignalReactionRules.rangeRemaining),
+            drive(CRUISE_STATE, "크루즈 상태", "checkCruiseControlStateCapabilities", VehicleValueType.ENUM, rule = SignalReactionRules.cruise),
+            drive(CRUISE_TARGET_SPEED, "크루즈 목표 속도", "checkCruiseControlTargetSpeedCapabilities", VehicleValueType.DECIMAL, quietEvent = VehicleEvent.CRUISE_TARGET_SET),
+            drive(GEAR, "기어", "(none) registerGearSelection", VehicleValueType.ENUM, rule = SignalReactionRules.gear),
         )
 
-        private fun drive(key: String, label: String, capability: String, type: VehicleValueType) = VehicleDataDefinition(
+        /** 버튼을 연타하는 크루즈 목표 속도는 마지막 입력 뒤 이만큼 조용해지면 한 번만 말한다. */
+        private const val TARGET_SPEED_QUIET_MS = 2_000L
+
+        /** 신호마다 [rule]로 말할 때를 고르거나, 값이 멈춘 뒤 [quietEvent] 하나만 말한다. 다시 말하는 간격은 이벤트의 쿨다운이 정한다. */
+        private fun drive(
+            key: String,
+            label: String,
+            capability: String,
+            type: VehicleValueType,
+            rule: VehicleValueRule? = null,
+            quietEvent: VehicleEvent? = null,
+        ) = VehicleDataDefinition(
             dataKey = key,
             displayName = label,
             domain = VehicleDomain.MOTION,
             capability = capability,
             permission = "pleos.car.permission.CAR_DRIVE",
             valueType = type,
+            reactionEvent = quietEvent,
+            reactionPolicy = if (rule != null) VehicleReactionPolicy.RULE else VehicleReactionPolicy.DEBOUNCED_CHANGE,
+            cooldownMs = 0,
+            debounceMs = TARGET_SPEED_QUIET_MS,
+            reactionRule = rule,
         )
     }
 }

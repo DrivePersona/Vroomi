@@ -13,11 +13,11 @@ Virtual Console은 별도 차량 에뮬레이터가 아니다. 이미 실행 중
 | 브레이크 | Motion > Brake Pedal: `0 → 70%` | 기록에 `브레이크 밟기`와 `말하기 요청`이 추가됨. 정차 중이면 캐릭터 반응과 음성 재생 시작이 이어짐 |
 | 방향지시등 | Convenience > Turn Signal State: `Off → Left Blink` 또는 `Right Blink` | 기록에 `방향지시등 켜기`와 `말하기 요청`이 추가됨. 정차 중이면 캐릭터 반응과 음성 재생 시작이 이어짐 |
 | 주행 제한 | Motion > Gear: `P → D` | 앱이 주행 상태가 되고 캐릭터/편집 UI가 숨거나 차단됨. 허용된 짧은 상태 음성만 정책에 따라 재생됨 |
-| 외부등 | Convenience > High Beam: `Off → On`, Exterior Lights Mode: `Off → Low beam` / `Tail lamp` | Vehicle 데이터 디버그에서 상향등·하향등·후미등이 `수신 중`이고 ON/OFF로 바뀜. Low beam은 하향등+후미등, Tail lamp는 후미등만 켜짐. 반응·음성 없이 값만 기록함 |
-| 조향각 | Motion > Steering Angle: `0 → 45` | 조향각이 `-45.00`으로 바뀜(콘솔 +45가 VHAL −45.0이라 부호가 반대). 값만 기록함 |
-| 주행거리·남은 주행거리 | Motion > Odometer, Energy > Remaining Range | 값이 바뀜(주행거리 km, 남은 주행거리 m). 콘솔이 주행거리 감소를 막으므로 시험 뒤 되돌릴 수 없고, 에뮬레이터를 콜드 부팅하면 0으로 돌아옴 |
-| 크루즈 | ADAS > Cruise Control State / Target Speed | 목표 속도가 m/s로 바뀜. 상태는 `not_ready`(VHAL −6)·`full_autonomous`(ACTIVATED)일 때만 바뀌고 `ready`·`longitudinal`·`lateral`은 ENABLED로 보임 |
-| 기어 값 | Motion > Gear Selection: `P → D → P` | 기어 항목이 `GEAR_PARK`/`GEAR_DRIVE`로 갱신됨. 정차/주행 판단은 기존 주행 규제(CarUx) 경로 그대로 |
+| 외부등 | Convenience > High Beam: `Off → On`, Exterior Lights Mode: `Off → Low beam` / `Tail lamp` | Vehicle 데이터 디버그에서 상향등·하향등·후미등이 `수신 중`이고 ON/OFF로 바뀜. Low beam은 하향등+후미등, Tail lamp는 후미등만 켜짐. 켜질 때 기록에 `상향등 켜짐`·`하향등 켜짐`·`후미등 켜짐`이 `말하기 요청`(`상향등이 켜졌어요.` 등, 기본 음성)으로 남고 `재생됨`까지 이어짐. Low beam은 하향등+후미등이 같은 순간 켜지므로 하향등만 말하고 후미등은 `버림`(우선순위)으로 남음. 꺼짐은 말하지 않음 |
+| 조향각 | Motion > Steering Angle: `0 → 45`, 이어서 `45 → 400` | 조향각이 바뀜(콘솔 +45가 VHAL −45.0이라 부호가 반대). 45에서는 값만 기록하고, 절댓값이 360°(핸들 한 바퀴, 임시 기준)를 넘는 400에서 기록에 `핸들 크게 꺾음`이 `말하기 요청`으로 남음 |
+| 주행거리·남은 주행거리 | Motion > Odometer `500 → 2300`(기어 D인 채로. 0에서 올라가는 값은 모름으로 보고 말하지 않음), Energy > Remaining Range `250000 → 49000 → 19000` | 값이 바뀜(주행거리 km, 남은 주행거리 m). 주행거리가 1,000km 이정표를 지나도 주행 중에는 말하지 않고 보관했다가, 기어를 P로 돌리고 5초쯤 뒤 기록에 `주행거리 이정표`가 `말하기 요청`으로 남음. 남은 주행거리가 50km 이하면 `남은 거리 적음`, 20km 이하면 `남은 거리 매우 적음`이 남음(올라가는 값과 0은 말하지 않음). 콘솔이 주행거리 감소를 막으므로 시험 뒤 되돌릴 수 없고, 에뮬레이터를 콜드 부팅하면 0으로 돌아옴 |
+| 크루즈 | ADAS > Cruise Control State: `ready → full_autonomous → ready`, Target Speed: `13.89 → 20` | 목표 속도가 m/s로 바뀜. 상태는 `not_ready`(VHAL −6)·`full_autonomous`(ACTIVATED)일 때만 바뀌고 `ready`·`longitudinal`·`lateral`은 ENABLED로 보임(그래서 세부 단계별 대사는 없음). `full_autonomous`로 바뀌면 `크루즈 켜짐`, `ready`로 돌아오면 `크루즈 해제`, 목표 속도는 마지막 변경 2초 뒤 `크루즈 속도 변경`이 한 번 `말하기 요청`으로 남음 |
+| 기어 값 | Motion > Gear Selection: `P → D → R → P` | 기어 항목이 `GEAR_PARK`/`GEAR_DRIVE`/`GEAR_REVERSE`로 갱신되고, 기록에 `기어 D로 변경`(`출발해요.`)·`기어 R로 변경`(`후진 중이에요. 뒤를 살펴 주세요.`)·`기어 P로 변경`(`도착했어요.`)이 `말하기 요청`으로 남음(같은 이벤트는 30초 쿨다운). 정차/주행 판단은 기존 주행 규제(CarUx) 경로 그대로 |
 | 창문 잠금 | Convenience > Window Lock: 잠김/해제 전환 | capability가 지원하는 영역만 활성으로 나타나고, dataKey cooldown으로 반복 반응이 제한됨 |
 | 창문 위치 | Convenience > Window Position: 닫힘 → 중간 → 열림 | 마지막 조작 후 800ms 안정화된 최종 범주에 한 번 반응함 |
 | 앰비언트 밝기 | Convenience > Ambient Brightness: 어두움 → 보통 → 밝음 | 슬라이더 조작 중 반복 발화 없이, 안정화된 밝기 범주에 한 번 반응함 |

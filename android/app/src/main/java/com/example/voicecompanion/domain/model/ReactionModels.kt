@@ -14,6 +14,7 @@ enum class VehicleEvent(
     val face: String,
     val defaultLine: String,
     val neutral: Boolean = false, // 연출 없이 중립 음성으로(§6 "안전 이벤트는 연출하지 않습니다")
+    val speakAfterStop: Boolean = false, // 주행 중엔 버리지 않고 보관했다가 정차한 뒤에 말한다(주행 중 축하 말은 하지 않는다)
 ) {
     BRAKE("브레이크 밟기", Rank.FLOURISH, 10_000, "😱", "으앗!"),
     TURN("방향지시등 켜기", Rank.STATUS, 8_000, "😉", "깜빡이 켰어~"),
@@ -29,6 +30,25 @@ enum class VehicleEvent(
     ENERGY_ATTENTION("에너지 확인", Rank.STATUS, 60_000, "🔋", "에너지를 확인해 줘."),
     ENERGY_URGENT("에너지 부족 경고", Rank.SAFETY, 60_000, "😐", "에너지가 부족합니다. 충전 또는 주유가 필요해요.", neutral = true),
     CHARGE_PORT("충전구 상태", Rank.STATUS, 10_000, "🔌", "충전구 상태가 바뀌었어."),
+
+    // 앱이 신호값에서 직접 만든 한 줄 대사. 음성 팩 슬롯이 아니라 기본 음성(SYSTEM_TTS)이 읽고 몸짓은 없다.
+    // ponytail: 쿨다운·말하는 기준은 임시값이다. 실차·에뮬레이터 실측 뒤에 조정한다.
+    HIGH_BEAM_ON("상향등 켜짐", Rank.STATUS, 30_000, "💡", "상향등이 켜졌어요.", neutral = true),
+    LOW_BEAM_ON("하향등 켜짐", Rank.STATUS, 30_000, "💡", "하향등이 켜졌어요.", neutral = true),
+    // 하향등과 함께 켜지는 후미등이 같은 창에서 하향등을 이기지 않게 한 단계 낮춘다.
+    TAIL_LAMP_ON("후미등 켜짐", Rank.FLOURISH, 30_000, "💡", "후미등이 켜졌어요.", neutral = true),
+    FRONT_FOG_ON("앞 안개등 켜짐", Rank.STATUS, 30_000, "🌫️", "앞 안개등이 켜졌어요.", neutral = true),
+    REAR_FOG_ON("뒤 안개등 켜짐", Rank.STATUS, 30_000, "🌫️", "뒤 안개등이 켜졌어요.", neutral = true),
+    SHIFT_TO_DRIVE("기어 D로 변경", Rank.STATUS, 30_000, "🚗", "출발해요.", neutral = true),
+    SHIFT_TO_PARK("기어 P로 변경", Rank.STATUS, 30_000, "🅿️", "도착했어요.", neutral = true),
+    SHIFT_TO_REVERSE("기어 R로 변경", Rank.STATUS, 30_000, "↩️", "후진 중이에요. 뒤를 살펴 주세요.", neutral = true),
+    CRUISE_ON("크루즈 켜짐", Rank.STATUS, 10_000, "🛣️", "크루즈가 켜졌어요.", neutral = true),
+    CRUISE_OFF("크루즈 해제", Rank.SAFETY, 10_000, "🛣️", "크루즈가 해제됐어요. 직접 운전해 주세요.", neutral = true),
+    CRUISE_TARGET_SET("크루즈 속도 변경", Rank.STATUS, 10_000, "⏱️", "크루즈 속도를 바꿨어요.", neutral = true),
+    STEER_BIG("핸들 크게 꺾음", Rank.FLOURISH, 60_000, "🛞", "핸들을 크게 꺾었어요. 주변을 살펴 주세요.", neutral = true),
+    ODO_MILESTONE("주행거리 이정표", Rank.FLOURISH, 60_000, "🏁", "누적 주행거리 이정표를 지났어요.", neutral = true, speakAfterStop = true),
+    RANGE_LOW("남은 거리 적음", Rank.STATUS, 300_000, "⛽", "주행 가능 거리가 줄었어요.", neutral = true),
+    RANGE_CRITICAL("남은 거리 매우 적음", Rank.SAFETY, 120_000, "⛽", "주행 가능 거리가 많이 부족해요. 충전이나 주유를 준비해 주세요.", neutral = true),
 }
 
 enum class DropReason { COOLDOWN, PRIORITY, FOCUS, DRIVING_SILENT, POLICY_SILENT }
@@ -55,6 +75,22 @@ object VehicleSpeechPolicy {
         VehicleEvent.ENERGY_ATTENTION to SpeechOutput.SILENCE,
         VehicleEvent.ENERGY_URGENT to SpeechOutput.NEUTRAL_CLIP,
         VehicleEvent.CHARGE_PORT to SpeechOutput.CHARACTER_CLIP,
+        // 신호값에서 직접 만든 한 줄 대사는 비공개 음성 팩의 슬롯이 아니라서 기본 음성이 읽는다(몸짓 없음).
+        VehicleEvent.HIGH_BEAM_ON to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.LOW_BEAM_ON to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.TAIL_LAMP_ON to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.FRONT_FOG_ON to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.REAR_FOG_ON to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.SHIFT_TO_DRIVE to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.SHIFT_TO_PARK to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.SHIFT_TO_REVERSE to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.CRUISE_ON to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.CRUISE_OFF to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.CRUISE_TARGET_SET to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.STEER_BIG to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.ODO_MILESTONE to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.RANGE_LOW to SpeechOutput.SYSTEM_TTS,
+        VehicleEvent.RANGE_CRITICAL to SpeechOutput.SYSTEM_TTS,
     )
 
     /** 일반 이벤트는 캐릭터 클립을 우선 사용한다. 안전 이벤트는 중립 문구의 팩 클립을 우선한다. */

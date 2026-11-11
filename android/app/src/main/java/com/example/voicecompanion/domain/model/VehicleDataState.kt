@@ -4,7 +4,11 @@ enum class VehicleDomain { MOTION, CONVENIENCE, SAFETY }
 
 enum class VehicleValueType { BOOLEAN, ENUM, INTEGER, COLOR, DECIMAL }
 
-enum class VehicleReactionPolicy { CHANGE, DEBOUNCED_CHANGE, BRIGHTNESS_BUCKET, POSITION_BUCKET }
+/** RULE: [VehicleDataDefinition.reactionRule]이 (이전 값, 새 값)을 보고 말할 이벤트를 고른다. */
+enum class VehicleReactionPolicy { CHANGE, DEBOUNCED_CHANGE, BRIGHTNESS_BUCKET, POSITION_BUCKET, RULE }
+
+/** 값이 바뀐 순간의 (이전 값, 새 값)에서 말할 이벤트를 고른다. 말할 게 없으면 null. */
+typealias VehicleValueRule = (previous: String, value: String) -> VehicleEvent?
 
 enum class VehicleAvailability { CHECKING, ACTIVE, UNSUPPORTED, ERROR }
 
@@ -20,6 +24,7 @@ data class VehicleDataDefinition(
     val cooldownMs: Long = 2_500,
     val allowWhileDriving: Boolean = true,
     val debounceMs: Long = 800,
+    val reactionRule: VehicleValueRule? = null,
 )
 
 data class VehicleDataState(

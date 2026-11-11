@@ -88,6 +88,7 @@ class VehicleStateRepository(
             val immediate = if (previous == null || previous == value) null else {
                 when (definition.reactionPolicy) {
                     VehicleReactionPolicy.CHANGE -> definition.reactionEvent
+                    VehicleReactionPolicy.RULE -> definition.reactionRule?.invoke(previous, value)
                     VehicleReactionPolicy.BRIGHTNESS_BUCKET, VehicleReactionPolicy.POSITION_BUCKET,
                     VehicleReactionPolicy.DEBOUNCED_CHANGE -> null
                     null -> legacyReactionFor(dataKey, previous, value)
