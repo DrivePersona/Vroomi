@@ -27,12 +27,15 @@ class ReactionEngine(
     private val schedule: (delayMs: Long, block: () -> Unit) -> () -> Unit,
     private val windowMs: Long = 300, // 이 시간 안에 모인 이벤트끼리 경쟁한다
     private val maxVolume: Float = 0.8f, // 음량 상한(§6)
+    private val releaseDelayMs: Long = 5_000, // 정차한 뒤 보관한 이벤트를 말하기까지 기다린다(도착 안내와 겹치지 않게)
 ) {
     // 상태를 아직 못 읽은 기동 직후는 주행으로 본다. 닫힌 쪽이 안전(§6 정차 게이트).
     private var driving = true
     private var voiceWhileDriving = true
     private val last = HashMap<VehicleEvent, Long>()
     private val pending = LinkedHashSet<VehicleEvent>()
+    private val heldUntilStop = LinkedHashSet<VehicleEvent>() // speakAfterStop 이벤트가 주행 중에 와서 기다리는 중
+    private var cancelRelease: (() -> Unit)? = null
     private var cancelTimer: (() -> Unit)? = null
     private val lines = VehicleEvent.entries.associateWith { it.defaultLine }.toMutableMap()
 
@@ -44,6 +47,10 @@ class ReactionEngine(
     }
 
     fun emit(event: VehicleEvent) {
+        if (driving && event.speakAfterStop) { // 주행 중엔 버리지 않고 정차할 때까지 보관한다
+            heldUntilStop += event
+            return
+        }
         pending += event
         if (cancelTimer == null) cancelTimer = schedule(windowMs) { flush() }
     }
@@ -89,7 +96,12 @@ class ReactionEngine(
 
     fun setDriving(value: Boolean) {
         driving = value
-        if (!value) return
+        cancelRelease?.invoke()
+        cancelRelease = null
+        if (!value) {
+            releaseHeldAfterDelay()
+            return
+        }
         platform.hideAvatar() // 주행이 시작되면 연출을 멈추고 UI를 숨긴다(§3)
         if (!voiceWhileDriving) platform.stop()
     }
@@ -97,6 +109,19 @@ class ReactionEngine(
     fun setVoiceWhileDriving(value: Boolean) {
         voiceWhileDriving = value
         if (driving && !value) platform.stop()
+    }
+
+    /** 정차하면 보관한 이벤트를 잠시 뒤에 말한다. 그 사이 다시 주행하면 계속 보관한다. */
+    private fun releaseHeldAfterDelay() {
+        if (heldUntilStop.isEmpty()) return
+        cancelRelease = schedule(releaseDelayMs) {
+            cancelRelease = null
+            if (!driving) {
+                val ready = heldUntilStop.toList()
+                heldUntilStop.clear()
+                ready.forEach(::emit)
+            }
+        }
     }
 
     /** 내비·통화·긴급 안내에 바로 양보한다(§6 오디오 포커스). */

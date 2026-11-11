@@ -1,24 +1,50 @@
 # 차량 신호 현황 (수신 가능한 신호)
 
-> 기준: `origin/main` 09943ca의 구독 코드 + 이 문서를 만든 PR의 코드, Pleos Connect v2.1.0 에뮬레이터(Virtual Console 63개 카탈로그), SDK `ai.pleos.playground:Vehicle:2.3.2`. 같은 내용의 필터 가능한 표는 [`vehicle-signals.xlsx`](vehicle-signals.xlsx)이다.
+> 기준: `origin/main` e786dd0(PR #42 머지 뒤)의 구독 코드 + 이 문서를 갱신한 PR의 코드, Pleos Connect v2.1.0 에뮬레이터(Virtual Console 63개 카탈로그), SDK `ai.pleos.playground:Vehicle:2.3.2`. 같은 내용의 필터 가능한 표는 [`vehicle-signals.xlsx`](vehicle-signals.xlsx)이다.
 
 ## 요약
 
 | 수신 상태 | 개수 |
 | --- | --- |
-| 이번 PR로 추가 | 11 |
-| 수신 중 (main) | 45 |
+| 수신 중 (main) | 56 |
 | 수신 가능·미구독 | 29 |
 | 권한 미선언 | 1 |
 | SDK 구독 없음 | 18 |
 | 서드파티 불가 | 2 |
 | 합계 | 106 |
 
-- **이번 PR로 추가**: 앱이 받도록 새로 더한 신호. 값만 기록하고 캐릭터 반응·음성·애니메이션에는 연결하지 않았다(어떤 신호에 반응할지는 제품 결정).
-- **수신 중 (main)**: `main`이 이미 구독하는 신호(창문·도어·공조·좌석·에너지 등). 이 PR에서 다시 확인하지는 않았다.
-- 새 권한은 추가하지 않았다. 이 PR의 신호는 이미 선언된 `CAR_LIGHTS`·`CAR_DRIVE`만 쓴다.
+- **수신 중 (main)**: `main`이 구독하는 신호. 외부등·주행 신호 11개(PR #42)는 값을 기록하고, 아래 "대사를 붙인 신호"의 규칙에 맞으면 한 줄 대사를 기본 음성으로 말한다.
+- 새 권한은 추가하지 않았다. 대사를 붙인 신호는 이미 선언된 `CAR_LIGHTS`·`CAR_DRIVE`만 쓴다.
 
-## 이번 PR로 추가한 신호 (11개)
+## 대사를 붙인 신호 (11개, 대사 15줄)
+
+| 신호 | 이벤트 | 말하는 때 | 대사 | 쿨다운 | 말하기 확인 | 비고 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 상향등 | HIGH_BEAM_ON | 꺼짐·주간주행등 → 켜짐 | 상향등이 켜졌어요. | 30초 | ✓ | Pleos 에뮬레이터(2026-11-11, 콘솔 조작): 반응 기록에 말하기 요청 · 재생됨 |
+| 하향등 | LOW_BEAM_ON | 꺼짐·주간주행등 → 켜짐 | 하향등이 켜졌어요. | 30초 | ✓ | 후미등과 같은 순간에 켜지면 하향등만 말함 |
+| 후미등 | TAIL_LAMP_ON | 꺼짐·주간주행등 → 켜짐 | 후미등이 켜졌어요. | 30초 | ✓ | 우선순위가 한 단계 낮아 하향등과 같은 순간이면 밀림 |
+| 앞 안개등 | FRONT_FOG_ON | 꺼짐·주간주행등 → 켜짐 | 앞 안개등이 켜졌어요. | 30초 | ✗ | 에뮬레이터 VHAL에 속성이 없어 신호·말하기 모두 확인할 수 없음 |
+| 뒤 안개등 | REAR_FOG_ON | 꺼짐·주간주행등 → 켜짐 | 뒤 안개등이 켜졌어요. | 30초 | ✗ | 에뮬레이터 VHAL에 속성이 없어 신호·말하기 모두 확인할 수 없음 |
+| 기어 | SHIFT_TO_DRIVE | D로 바뀔 때 | 출발해요. | 30초 | ✓ | Pleos 에뮬레이터(2026-11-11, 콘솔 조작): 반응 기록에 말하기 요청 · 재생됨 |
+| 기어 | SHIFT_TO_PARK | P로 바뀔 때 | 도착했어요. | 30초 | ✓ | Pleos 에뮬레이터(2026-11-11, 콘솔 조작): 반응 기록에 말하기 요청 · 재생됨 |
+| 기어 | SHIFT_TO_REVERSE | R로 바뀔 때 | 후진 중이에요. 뒤를 살펴 주세요. | 30초 | ✓ | 중립(N)·모름·수동 단수는 말하지 않음 |
+| 크루즈 상태 | CRUISE_ON | ENABLED·OTHER → ACTIVATED | 크루즈가 켜졌어요. | 10초 | ✓ | Pleos 에뮬레이터(2026-11-11, 콘솔 조작): 반응 기록에 말하기 요청 · 재생됨 |
+| 크루즈 상태 | CRUISE_OFF | ACTIVATED·USER_OVERRIDE·SUSPENDED·FORCED_DEACTIVATION_WARNING → ENABLED·OTHER | 크루즈가 해제됐어요. 직접 운전해 주세요. | 10초 | ✓ | 안전 등급: 같은 순간의 다른 대사를 이김. 페달로 덮어쓰기·일시 정지는 켜짐도 해제도 아님 |
+| 크루즈 목표 속도 | CRUISE_TARGET_SET | 마지막 변경 뒤 2초 동안 조용하면 1회 | 크루즈 속도를 바꿨어요. | 10초 | ✓ | Pleos 에뮬레이터(2026-11-11, 콘솔 조작): 반응 기록에 말하기 요청 · 재생됨 |
+| 조향각 | STEER_BIG | \|각도\|가 360°(핸들 한 바퀴) 미만에서 이상으로 넘을 때 [임시 기준] | 핸들을 크게 꺾었어요. 주변을 살펴 주세요. | 60초 | ✓ | 방향은 가리지 않음 |
+| 주행거리 | ODO_MILESTONE | 1,000km 단위를 지날 때 [임시 기준] | 누적 주행거리 이정표를 지났어요. | 60초 | ✓ | 주행 중에는 버리지 않고 보관했다가 정차하고 5초 뒤에 말함(도착 안내와 겹치지 않게) |
+| 남은 주행거리 | RANGE_LOW | 50km 이하로 내려갈 때 [임시 기준] | 주행 가능 거리가 줄었어요. | 5분 | ✓ | Pleos 에뮬레이터(2026-11-11, 콘솔 조작): 반응 기록에 말하기 요청 · 재생됨 |
+| 남은 주행거리 | RANGE_CRITICAL | 20km 이하로 내려갈 때 [임시 기준] | 주행 가능 거리가 많이 부족해요. 충전이나 주유를 준비해 주세요. | 2분 | ✓ | 안전 등급. 값 0은 "모름"으로 보고 말하지 않음 |
+
+- 대사는 비공개 음성 팩의 슬롯이 아니라서 **기본 음성(시스템 TTS)** 이 읽고 캐릭터 몸짓은 없다. 캐릭터 목소리로 말하게 하려면 음성 팩에 슬롯과 클립이 더 필요하다.
+- 값(숫자)은 읽지 않는 고정 문장이다. 꺼짐은 말하지 않는다(크루즈 해제만 예외). 캐릭터를 고르지 않은 화면의 대사 편집 목록에서 문장을 바꿀 수 있고, 비우면 기본 대사로 돌아온다.
+- 주행 중에도 말한다. 다만 "주행 중 음성 허용"을 끄면 정차 중에만 말한다. 주행거리 이정표만 주행 중에 보관했다가 정차한 뒤에 말한다.
+- `[임시 기준]`과 쿨다운은 임시값이다(`SignalReactionRules`, `VehicleEvent`). 실차·에뮬레이터 실측 뒤에 조정한다.
+- 한 순간(300ms)에 여러 대사가 오면 안전 > 상태 > 연출 순으로 하나만 말하고 나머지는 버린다. 하향등과 같이 켜지는 후미등은 한 단계 낮아 하향등이 먼저다.
+
+말하기 확인 기호: ✓ 에뮬레이터에서 앱 반응 기록에 `재생됨`까지 이어짐 · ✗ 이 에뮬레이터에서 확인 못 함 · - 이번 작업에서 확인하지 않음.
+
+## PR #42로 추가한 신호 (11개) — SDK·권한·콘솔 대응
 
 | 신호 | SDK 구독 메서드 | 권한 | 콘솔 신호 | VHAL/서비스 속성 | 확인 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -36,21 +62,12 @@
 
 확인 기호: ✓ 콘솔 → VHAL → Pleos 서비스 → 앱 목록까지 값이 바뀌어 옴 · △ 일부 값에서만 바뀜 · ✗ 이 에뮬레이터에서 안 됨(속성 없음·이벤트 없음).
 
-## 수신 가능한 신호 전체 (`main` + 이 PR)
+## 수신 가능한 신호 전체 (`main`)
 
 | 상태 | 도메인 | 신호 | 콘솔 id | SDK 메서드 | 권한 | 반응 연결 | 확인 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 이번 PR로 추가 | ADAS | 크루즈 목표 속도 | `cruise-control-target-speed` | `DrivingMode.registerCruiseControlTargetSpeed` | CAR_DRIVE | 없음 (상태만 기록) | ✓ |
-| 이번 PR로 추가 | ADAS | 크루즈 상태 | `cruise-control-state` | `DrivingMode.registerCruiseControlState` | CAR_DRIVE | 없음 (상태만 기록) | △ |
-| 이번 PR로 추가 | Convenience | 상향등 | `high-beam-lights` | `Light.registerHighBeamLightState` | CAR_LIGHTS | 없음 (상태만 기록) | ✓ |
-| 이번 PR로 추가 | Convenience | 하향등 | `exterior-lights-mode` | `Light.registerLowBeamLightState` | CAR_LIGHTS | 없음 (상태만 기록) | ✓ |
-| 이번 PR로 추가 | Convenience | 후미등 | `exterior-lights-mode` | `Light.registerTailLampLightState` | CAR_LIGHTS | 없음 (상태만 기록) | ✓ |
-| 이번 PR로 추가 | Energy | 남은 주행거리 | `range-remaining` | `Odometer.registerRangeRemainingListener` | CAR_DRIVE | 없음 (상태만 기록) | ✓ |
-| 이번 PR로 추가 | Motion | 기어 | `gear-selection` | `Gear.registerGearSelection` | CAR_DRIVE | 없음 (상태만 기록) | ✓ |
-| 이번 PR로 추가 | Motion | 조향각 | `steering-angle` | `SteeringWheel.registerSteeringWheelAngle` | CAR_DRIVE | 없음 (상태만 기록) | ✓ |
-| 이번 PR로 추가 | Motion | 주행거리 | `perf-odometer` | `Odometer.registerDistanceDriven` | CAR_DRIVE | 없음 (상태만 기록) | ✓ |
-| 이번 PR로 추가 | Light | 뒤 안개등 |  | `Light.registerRearFogLightState` | CAR_LIGHTS | 없음 (상태만 기록) | ✗ |
-| 이번 PR로 추가 | Light | 앞 안개등 |  | `Light.registerFrontFogLightState` | CAR_LIGHTS | 없음 (상태만 기록) | ✗ |
+| 수신 중 (main) | ADAS | 크루즈 목표 속도 | `cruise-control-target-speed` | `DrivingMode.registerCruiseControlTargetSpeed` | CAR_DRIVE | CRUISE_TARGET_SET (2초 디바운스) | ✓ |
+| 수신 중 (main) | ADAS | 크루즈 상태 | `cruise-control-state` | `DrivingMode.registerCruiseControlState` | CAR_DRIVE | CRUISE_ON / CRUISE_OFF | △ |
 | 수신 중 (main) | Climate | 공기 청정 | `hvac-air-cleaner` | `HVAC.registerHvacAirCleanerState(SeatArea)` | CAR_CLIMATE | COMFORT | - |
 | 수신 중 (main) | Climate | 공조 자동 | `hvac-auto` | `HVAC.registerHvacAutoState(SeatArea)` | CAR_CLIMATE | COMFORT | - |
 | 수신 중 (main) | Climate | 공조 전원 | `hvac-power` | `HVAC.registerHvacPowerState(SeatArea)` | CAR_CLIMATE | COMFORT | - |
@@ -66,6 +83,7 @@
 | 수신 중 (main) | Convenience | 도어 잠금 | `door-lock` | `Door.registerDoorLockState(DoorArea)` | CAR_DOORS | DOOR | - |
 | 수신 중 (main) | Convenience | 독서등 | `reading-lights-switch` | `Light.registerReadingLightState(SeatArea)` | CAR_LIGHTS | LIGHT | ✓ |
 | 수신 중 (main) | Convenience | 방향지시등 | `turn-signal-state` | `TurnSignal.registerTurnSignalState` | CAR_LIGHTS | TURN | ✓ |
+| 수신 중 (main) | Convenience | 상향등 | `high-beam-lights` | `Light.registerHighBeamLightState` | CAR_LIGHTS | HIGH_BEAM_ON (켜질 때) | ✓ |
 | 수신 중 (main) | Convenience | 실내등 | `cabin-lights-switch` | `Light.registerCabinLightState` | CAR_LIGHTS | LIGHT | ✓ |
 | 수신 중 (main) | Convenience | 앰비언트 밝기 | `ambient-light-brightness` | `Light.registerAmbientLightBrightnessListener(SeatArea)` | CAR_LIGHTS | LIGHT (밝기 구간) | ✓ |
 | 수신 중 (main) | Convenience | 앰비언트 색상 | `ambient-light-color` | `Light.registerAmbientLightBrightnessColorListener(SeatArea)` | CAR_LIGHTS | LIGHT | ✓ |
@@ -74,10 +92,16 @@
 | 수신 중 (main) | Convenience | 창문 위치 | `window-position` | `Window.registerWindowPosition(WindowArea)` | CAR_WINDOWS | WINDOW (위치 구간) | - |
 | 수신 중 (main) | Convenience | 창문 잠금 | `window-lock` | `Window.registerWindowLockState(WindowArea)` | CAR_WINDOWS | WINDOW | - |
 | 수신 중 (main) | Convenience | 트렁크·프렁크 열림 | `trunk-position` | `Door.registerDoorPosition(DoorArea)` | CAR_DOORS | DOOR (열림 구간) | - |
+| 수신 중 (main) | Convenience | 하향등 | `exterior-lights-mode` | `Light.registerLowBeamLightState` | CAR_LIGHTS | LOW_BEAM_ON (켜질 때) | ✓ |
+| 수신 중 (main) | Convenience | 후미등 | `exterior-lights-mode` | `Light.registerTailLampLightState` | CAR_LIGHTS | TAIL_LAMP_ON (켜질 때) | ✓ |
+| 수신 중 (main) | Energy | 남은 주행거리 | `range-remaining` | `Odometer.registerRangeRemainingListener` | CAR_DRIVE | RANGE_LOW / RANGE_CRITICAL | ✓ |
 | 수신 중 (main) | Energy | 배터리 에너지 | `ev-battery-level` | `EvBattery.registerEvBatteryLevel` | CAR_ENERGY | 없음 (상태만 기록) | - |
 | 수신 중 (main) | Energy | 배터리 잔량(SOC) | `ev-battery-soc` | `EvBattery.registerEvBatteryStateOfCharge` | CAR_ENERGY | ENERGY_* (범주 전환) | - |
 | 수신 중 (main) | Energy | 충전구 | `ev-charge-port` | `EvBattery.registerEvChargePortOpen` | CAR_ENERGY | CHARGE_PORT | - |
+| 수신 중 (main) | Motion | 기어 | `gear-selection` | `Gear.registerGearSelection` | CAR_DRIVE | SHIFT_TO_DRIVE / SHIFT_TO_PARK / SHIFT_TO_REVERSE | ✓ |
 | 수신 중 (main) | Motion | 브레이크 페달 | `brake-pedal-status` | `Brake.registerBrakePedalStatus` | CAR_DRIVE | BRAKE | ✓ |
+| 수신 중 (main) | Motion | 조향각 | `steering-angle` | `SteeringWheel.registerSteeringWheelAngle` | CAR_DRIVE | STEER_BIG (큰 각도) | ✓ |
+| 수신 중 (main) | Motion | 주행거리 | `perf-odometer` | `Odometer.registerDistanceDriven` | CAR_DRIVE | ODO_MILESTONE (이정표, 정차 후) | ✓ |
 | 수신 중 (main) | Motion | 핸들 열선 | `steering-wheel-heat` | `SteeringWheel.registerHvacSteeringWheelHeatState` | CAR_CLIMATE | 없음 (상태만 기록) | - |
 | 수신 중 (main) | Convenience | 앰비언트 모드 | `ambient-light-switch` | `Light.registerAmbientLightStateListener(SeatArea)` | CAR_LIGHTS | LIGHT | ✗ |
 | 수신 중 (main) | DrivingMode | 주행 모드 |  | `DrivingMode.registerDrivingModeState` | CAR_DRIVE | MODE | ✗ |
@@ -90,6 +114,8 @@
 | 수신 중 (main) | Fuel | 연료 잔량 |  | `Fuel.registerFuelPercent` | CAR_ENERGY | ENERGY_* (범주 전환) | ✗ |
 | 수신 중 (main) | Fuel | 충전 이후 연비 |  | `Fuel.registerSinceChargeFuelEconomy` | CAR_ENERGY | 없음 (상태만 기록) | ✗ |
 | 수신 중 (main) | Fuel | 현재 연비 |  | `Fuel.registerCurrentFuelEconomy` | CAR_ENERGY | 없음 (상태만 기록) | ✗ |
+| 수신 중 (main) | Light | 뒤 안개등 |  | `Light.registerRearFogLightState` | CAR_LIGHTS | REAR_FOG_ON (켜질 때) | ✗ |
+| 수신 중 (main) | Light | 앞 안개등 |  | `Light.registerFrontFogLightState` | CAR_LIGHTS | FRONT_FOG_ON (켜질 때) | ✗ |
 | 수신 중 (main) | Light | 주행 모드 연동 조명 |  | `Light.registerAmbientColorAutoByDriveModeEnabled` | CAR_LIGHTS | LIGHT | ✗ |
 | 수신 중 (main) | Safety | 안전벨트 미착용 경고 |  | `Safety.registerSeatBeltNotBuckledWarning` | CAR_SAFETY | WARNING (중립 음성) | ✗ |
 | 수신 중 (main) | SideMirror | 사이드미러 열선 |  | `SideMirror.registerHvacSideMirrorHeatState` | CAR_CLIMATE | 없음 (상태만 기록) | - |

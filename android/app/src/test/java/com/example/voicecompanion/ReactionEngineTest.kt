@@ -5,6 +5,12 @@ import com.example.voicecompanion.domain.model.VehicleEvent
 import com.example.voicecompanion.domain.model.VehicleEvent.BRAKE
 import com.example.voicecompanion.domain.model.VehicleEvent.TURN
 import com.example.voicecompanion.domain.model.VehicleEvent.WARNING
+import com.example.voicecompanion.domain.model.VehicleEvent.CRUISE_OFF
+import com.example.voicecompanion.domain.model.VehicleEvent.HIGH_BEAM_ON
+import com.example.voicecompanion.domain.model.VehicleEvent.LOW_BEAM_ON
+import com.example.voicecompanion.domain.model.VehicleEvent.ODO_MILESTONE
+import com.example.voicecompanion.domain.model.VehicleEvent.SHIFT_TO_DRIVE
+import com.example.voicecompanion.domain.model.VehicleEvent.TAIL_LAMP_ON
 import com.example.voicecompanion.domain.model.DropReason
 import com.example.voicecompanion.domain.model.LogEntry
 import org.junit.Assert.assertEquals
@@ -53,6 +59,11 @@ private class Rig {
 
     val spoken get() = platform.spoke.map { it.text }
     val drops get() = platform.logs.filterIsInstance<LogEntry.Drop>().map { it.event to it.why }
+
+    /** 걸려 있는 타이머를 모두 돌린다. 도는 동안 새로 걸린 타이머도 이어서 돌린다. */
+    fun drain() {
+        while (timers.isNotEmpty()) timers.removeAt(0).invoke()
+    }
 }
 
 class ReactionEngineTest {
@@ -223,6 +234,77 @@ class ReactionEngineTest {
         r.fire(BRAKE, BRAKE)
         assertEquals(listOf("으앗!"), r.spoken)
         assertTrue(r.drops.isEmpty())
+    }
+
+    @Test
+    fun `신호 대사는 정차 중에도 기본 음성으로만 말하고 아바타를 띄우지 않는다`() {
+        val r = Rig()
+        r.engine.setDriving(false)
+        r.fire(HIGH_BEAM_ON)
+        val s = r.platform.spoke.single()
+        assertEquals("상향등이 켜졌어요.", s.text)
+        assertTrue(s.neutral)
+        assertTrue(r.platform.avatars.isEmpty())
+    }
+
+    @Test
+    fun `하향등과 후미등이 한 창에 같이 오면 하향등만 말한다`() {
+        val r = Rig()
+        r.engine.setDriving(true)
+        r.fire(TAIL_LAMP_ON, LOW_BEAM_ON) // 후미등이 먼저 와도
+        assertEquals(listOf("하향등이 켜졌어요."), r.spoken)
+        assertEquals(listOf(TAIL_LAMP_ON to DropReason.PRIORITY), r.drops)
+    }
+
+    @Test
+    fun `크루즈 해제는 같은 창의 상태 안내보다 먼저 말한다`() {
+        val r = Rig()
+        r.engine.setDriving(true)
+        r.fire(SHIFT_TO_DRIVE, CRUISE_OFF)
+        assertEquals(listOf("크루즈가 해제됐어요. 직접 운전해 주세요."), r.spoken)
+        assertEquals(listOf(SHIFT_TO_DRIVE to DropReason.PRIORITY), r.drops)
+    }
+
+    @Test
+    fun `정차 후 말할 이벤트는 정차 중이면 바로 말한다`() {
+        val r = Rig()
+        r.engine.setDriving(false)
+        r.fire(ODO_MILESTONE)
+        assertEquals(listOf("누적 주행거리 이정표를 지났어요."), r.spoken)
+    }
+
+    @Test
+    fun `정차 후 말할 이벤트는 주행 중엔 버리지 않고 보관했다가 정차하고 잠시 뒤에 말한다`() {
+        val r = Rig()
+        r.engine.setDriving(true)
+        r.fire(ODO_MILESTONE, ODO_MILESTONE) // 같은 이벤트는 하나로 보관한다
+        assertTrue(r.spoken.isEmpty())
+        assertTrue(r.drops.isEmpty()) // 버린 게 아니다
+
+        r.engine.setDriving(false)
+        assertTrue("도착 안내와 겹치지 않게 바로 말하지 않는다", r.spoken.isEmpty())
+        r.drain()
+        assertEquals(listOf("누적 주행거리 이정표를 지났어요."), r.spoken)
+
+        r.engine.setDriving(true)
+        r.engine.setDriving(false)
+        r.drain()
+        assertEquals("한 번 말한 이벤트는 다시 말하지 않는다", 1, r.spoken.size)
+    }
+
+    @Test
+    fun `정차했다가 잠시 뒤에 다시 주행하면 보관한 이벤트는 계속 보관한다`() {
+        val r = Rig()
+        r.engine.setDriving(true)
+        r.fire(ODO_MILESTONE)
+        r.engine.setDriving(false)
+        r.engine.setDriving(true) // 말하기 전에 다시 출발
+        r.drain()
+        assertTrue(r.spoken.isEmpty())
+
+        r.engine.setDriving(false)
+        r.drain()
+        assertEquals(listOf("누적 주행거리 이정표를 지났어요."), r.spoken)
     }
 
     @Test

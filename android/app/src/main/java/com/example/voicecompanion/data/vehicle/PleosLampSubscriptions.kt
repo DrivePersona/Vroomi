@@ -7,14 +7,16 @@ import ai.pleos.playground.vehicle.constant.control.LightState
 import ai.pleos.playground.vehicle.listener.LightStateListener
 import com.example.voicecompanion.domain.model.VehicleDataDefinition
 import com.example.voicecompanion.domain.model.VehicleDomain
+import com.example.voicecompanion.domain.model.VehicleEvent
+import com.example.voicecompanion.domain.model.VehicleReactionPolicy
 import com.example.voicecompanion.domain.model.VehicleValueType
 
 /**
  * Capability-gated, read-only exterior lamp states: high beam, low beam, tail lamp, front and rear fog.
  *
- * Values are only recorded in [VehicleStateRepository]. No reaction event or policy is attached, so these lamps never
- * make the companion speak or gesture; which signals react is a product decision. Every definition is registered up
- * front so the data panel shows CHECKING until the capability answer arrives (observe() ignores unregistered keys).
+ * Values are recorded in [VehicleStateRepository]. A lamp that turns ON also speaks one short line in the built-in
+ * voice (no gesture, see [SignalReactionRules.turnsOn]); turning off is never spoken. Every definition is registered
+ * up front so the data panel shows CHECKING until the capability answer arrives (observe() ignores unregistered keys).
  */
 internal class PleosLampSubscriptions(
     private val vehicle: Vehicle,
@@ -89,20 +91,24 @@ internal class PleosLampSubscriptions(
         const val REAR_FOG = "rear-fog-light-state"
 
         val definitions: List<VehicleDataDefinition> = listOf(
-            lamp(HIGH_BEAM, "상향등", "checkHighBeamLightStateCapabilities"),
-            lamp(LOW_BEAM, "하향등", "checkLowBeamLightStateCapabilities"),
-            lamp(TAIL_LAMP, "후미등", "checkTailLampLightStateCapabilities"),
-            lamp(FRONT_FOG, "앞 안개등", "checkFrontFogLightStateCapabilities"),
-            lamp(REAR_FOG, "뒤 안개등", "checkRearFogLightStateCapabilities"),
+            lamp(HIGH_BEAM, "상향등", "checkHighBeamLightStateCapabilities", VehicleEvent.HIGH_BEAM_ON),
+            lamp(LOW_BEAM, "하향등", "checkLowBeamLightStateCapabilities", VehicleEvent.LOW_BEAM_ON),
+            lamp(TAIL_LAMP, "후미등", "checkTailLampLightStateCapabilities", VehicleEvent.TAIL_LAMP_ON),
+            lamp(FRONT_FOG, "앞 안개등", "checkFrontFogLightStateCapabilities", VehicleEvent.FRONT_FOG_ON),
+            lamp(REAR_FOG, "뒤 안개등", "checkRearFogLightStateCapabilities", VehicleEvent.REAR_FOG_ON),
         )
 
-        private fun lamp(key: String, label: String, capability: String) = VehicleDataDefinition(
+        // 같은 램프를 다시 켰을 때 말하는 간격은 이벤트의 쿨다운이 정하므로 여기서는 두지 않는다(cooldownMs = 0).
+        private fun lamp(key: String, label: String, capability: String, onEvent: VehicleEvent) = VehicleDataDefinition(
             dataKey = key,
             displayName = label,
             domain = VehicleDomain.CONVENIENCE,
             capability = capability,
             permission = "pleos.car.permission.CAR_LIGHTS",
             valueType = VehicleValueType.ENUM,
+            reactionPolicy = VehicleReactionPolicy.RULE,
+            cooldownMs = 0,
+            reactionRule = SignalReactionRules.turnsOn(onEvent),
         )
     }
 }

@@ -5,7 +5,58 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** 앱이 신호값에서 직접 만든 한 줄 대사들. 음성 팩 슬롯이 아니라 기본 음성(시스템 TTS)이 읽는다. */
+private val signalEvents = listOf(
+    VehicleEvent.HIGH_BEAM_ON, VehicleEvent.LOW_BEAM_ON, VehicleEvent.TAIL_LAMP_ON,
+    VehicleEvent.FRONT_FOG_ON, VehicleEvent.REAR_FOG_ON,
+    VehicleEvent.SHIFT_TO_DRIVE, VehicleEvent.SHIFT_TO_PARK, VehicleEvent.SHIFT_TO_REVERSE,
+    VehicleEvent.CRUISE_ON, VehicleEvent.CRUISE_OFF, VehicleEvent.CRUISE_TARGET_SET,
+    VehicleEvent.STEER_BIG, VehicleEvent.ODO_MILESTONE,
+    VehicleEvent.RANGE_LOW, VehicleEvent.RANGE_CRITICAL,
+)
+
 class VehicleSpeechPolicyTest {
+    @Test
+    fun `every vehicle event has an explicit output`() {
+        VehicleEvent.entries.forEach { VehicleSpeechPolicy.outputFor(it) } // 빠진 이벤트가 있으면 NoSuchElementException
+    }
+
+    @Test
+    fun `signal lines use the built-in voice and never enter the voice-pack or gesture contract`() {
+        assertEquals(15, signalEvents.size)
+        signalEvents.forEach { event ->
+            assertEquals(event.name, SpeechOutput.SYSTEM_TTS, VehicleSpeechPolicy.outputFor(event))
+            val id = VehicleSpeechPolicy.canonicalEventId(event)
+            assertFalse(id, VehicleSpeechPolicy.voicePackClipEventIds.contains(id))
+            assertFalse(id, VehicleSpeechPolicy.characterGestureEventIds.contains(id))
+        }
+        assertEquals(setOf(VehicleEvent.WARNING, VehicleEvent.ENERGY_URGENT), VehicleSpeechPolicy.safetyEvents)
+    }
+
+    @Test
+    fun `signal lines are short sentences that never read a value`() {
+        signalEvents.forEach { event ->
+            assertTrue(event.name, event.defaultLine.isNotBlank())
+            assertTrue(event.name, event.defaultLine.length <= 40)
+            assertTrue("${event.name} must not read a number", event.defaultLine.none { it.isDigit() })
+            assertTrue("${event.name} is delivered without character acting", event.neutral)
+        }
+        assertEquals(signalEvents.size, signalEvents.map { it.defaultLine }.toSet().size)
+    }
+
+    @Test
+    fun `lines that hand the driving back or warn about running out are safety rank`() {
+        assertEquals(Rank.SAFETY, VehicleEvent.CRUISE_OFF.rank)
+        assertEquals(Rank.SAFETY, VehicleEvent.RANGE_CRITICAL.rank)
+        assertTrue(Rank.STATUS < Rank.FLOURISH)
+        assertTrue(VehicleEvent.LOW_BEAM_ON.rank < VehicleEvent.TAIL_LAMP_ON.rank) // 같이 켜지는 하향등이 후미등을 이긴다
+    }
+
+    @Test
+    fun `only the odometer milestone waits for a stop`() {
+        assertEquals(listOf(VehicleEvent.ODO_MILESTONE), VehicleEvent.entries.filter { it.speakAfterStop })
+    }
+
     @Test
     fun `every predefined vehicle event has an explicit output and safety never enters gesture manifests`() {
         val clipEvents = VehicleSpeechPolicy.characterClipEventIds

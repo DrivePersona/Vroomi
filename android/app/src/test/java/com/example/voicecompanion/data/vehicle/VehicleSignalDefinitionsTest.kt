@@ -12,6 +12,26 @@ import org.junit.Test
 class VehicleSignalDefinitionsTest {
     private val definitions = PleosLampSubscriptions.definitions + PleosDriveSubscriptions.definitions
 
+    /** 기준값(baseline) 다음에 trigger 값이 오면 event 하나를 말해야 하는 경우. */
+    private data class Case(val key: String, val baseline: String, val trigger: String, val event: VehicleEvent)
+
+    private val cases = listOf(
+        Case(PleosLampSubscriptions.HIGH_BEAM, "OFF", "ON", VehicleEvent.HIGH_BEAM_ON),
+        Case(PleosLampSubscriptions.LOW_BEAM, "OFF", "ON", VehicleEvent.LOW_BEAM_ON),
+        Case(PleosLampSubscriptions.TAIL_LAMP, "OFF", "ON", VehicleEvent.TAIL_LAMP_ON),
+        Case(PleosLampSubscriptions.FRONT_FOG, "OFF", "ON", VehicleEvent.FRONT_FOG_ON),
+        Case(PleosLampSubscriptions.REAR_FOG, "OFF", "ON", VehicleEvent.REAR_FOG_ON),
+        Case(PleosDriveSubscriptions.GEAR, "GEAR_PARK", "GEAR_DRIVE", VehicleEvent.SHIFT_TO_DRIVE),
+        Case(PleosDriveSubscriptions.GEAR, "GEAR_DRIVE", "GEAR_PARK", VehicleEvent.SHIFT_TO_PARK),
+        Case(PleosDriveSubscriptions.GEAR, "GEAR_DRIVE", "GEAR_REVERSE", VehicleEvent.SHIFT_TO_REVERSE),
+        Case(PleosDriveSubscriptions.CRUISE_STATE, "ENABLED", "ACTIVATED", VehicleEvent.CRUISE_ON),
+        Case(PleosDriveSubscriptions.CRUISE_STATE, "ACTIVATED", "ENABLED", VehicleEvent.CRUISE_OFF),
+        Case(PleosDriveSubscriptions.STEERING_ANGLE, "0.00", "-400.00", VehicleEvent.STEER_BIG),
+        Case(PleosDriveSubscriptions.DISTANCE_DRIVEN, "999.90", "1000.10", VehicleEvent.ODO_MILESTONE),
+        Case(PleosDriveSubscriptions.RANGE_REMAINING, "250000.00", "49000.00", VehicleEvent.RANGE_LOW),
+        Case(PleosDriveSubscriptions.RANGE_REMAINING, "49000.00", "19000.00", VehicleEvent.RANGE_CRITICAL),
+    )
+
     @Test
     fun keysAreUniqueAndDoNotCollideWithTheBaseCatalog() {
         val keys = definitions.map { it.dataKey }
@@ -21,8 +41,18 @@ class VehicleSignalDefinitionsTest {
     }
 
     @Test
-    fun signalsAreStateOnlyAndNeverCarryAReaction() {
-        assertTrue(definitions.all { it.reactionEvent == null && it.reactionPolicy == null })
+    fun everySignalHasAReactionAndMayBeSpokenWhileDriving() {
+        definitions.forEach { definition ->
+            assertTrue("${definition.dataKey} must have a reaction", definition.reactionRule != null || definition.reactionEvent != null)
+            assertTrue("${definition.dataKey} is a driving signal", definition.allowWhileDriving)
+        }
+    }
+
+    /** 11개 신호 모두 아래 경우표나 목표 속도 시험 중 하나에 걸려 있어야 한다(신호를 더하고 시험을 빼먹지 않게). */
+    @Test
+    fun everySignalIsCoveredByAWiringCase() {
+        val covered = cases.map { it.key }.toSet() + PleosDriveSubscriptions.CRUISE_TARGET_SPEED
+        assertEquals(definitions.map { it.dataKey }.toSet(), covered)
     }
 
     @Test
@@ -34,9 +64,74 @@ class VehicleSignalDefinitionsTest {
     }
 
     @Test
-    fun valuesAreRecordedAndNeverEmitReactions() {
-        val events = mutableListOf<VehicleEvent>()
-        val repository = VehicleStateRepository({}, { event, _ -> events += event })
+    fun eachSignalSpeaksItsOwnEventOnlyAfterTheBaselineValue() {
+        cases.forEach { case ->
+            val spoken = mutableListOf<Pair<VehicleEvent, Boolean>>()
+            val repository = VehicleStateRepository({}, { event, allowWhileDriving -> spoken += event to allowWhileDriving })
+            definitions.forEach(repository::registerDefinition)
+
+            repository.observe(case.key, case.baseline)
+            assertTrue("${case.key}: the first value is only a baseline", spoken.isEmpty())
+            repository.observe(case.key, case.trigger)
+            assertEquals("${case.key} ${case.baseline} -> ${case.trigger}", listOf(case.event to true), spoken)
+            repository.observe(case.key, case.trigger)
+            assertEquals("${case.key}: the same value again is not a change", 1, spoken.size)
+            repository.close()
+        }
+    }
+
+    @Test
+    fun lampsSayNothingWhenTheyTurnOff() {
+        val spoken = mutableListOf<VehicleEvent>()
+        val repository = VehicleStateRepository({}, { event, _ -> spoken += event })
+        definitions.forEach(repository::registerDefinition)
+
+        val key = PleosLampSubscriptions.HIGH_BEAM
+        repository.observe(key, "OFF")
+        repository.observe(key, "ON")
+        repository.observe(key, "OFF")
+        repository.observe(key, "DAYTIME_RUNNING")
+        repository.observe(key, "ON")
+
+        assertEquals(listOf(VehicleEvent.HIGH_BEAM_ON, VehicleEvent.HIGH_BEAM_ON), spoken)
+        repository.close()
+    }
+
+    @Test
+    fun targetSpeedSpeaksOnceAfterTheLastButtonPress() {
+        class Task(var cancelled: Boolean, val run: () -> Unit)
+        val tasks = mutableListOf<Task>()
+        val spoken = mutableListOf<VehicleEvent>()
+        val repository = VehicleStateRepository(
+            onSnapshot = {},
+            onReaction = { event, allowWhileDriving ->
+                assertTrue(allowWhileDriving)
+                spoken += event
+            },
+            schedule = { delay, action ->
+                assertEquals(2_000L, delay)
+                val task = Task(false, action)
+                tasks += task
+                val cancel: () -> Unit = { task.cancelled = true }
+                cancel
+            },
+        )
+        definitions.forEach(repository::registerDefinition)
+
+        val key = PleosDriveSubscriptions.CRUISE_TARGET_SPEED
+        repository.observe(key, "13.89") // 기준값
+        repository.observe(key, "15.00") // 버튼을 연타한다
+        repository.observe(key, "16.00")
+        assertTrue("nothing is spoken before the presses stop", spoken.isEmpty())
+
+        tasks.filterNot { it.cancelled }.forEach { it.run() }
+        assertEquals(listOf(VehicleEvent.CRUISE_TARGET_SET), spoken)
+        repository.close()
+    }
+
+    @Test
+    fun valuesAreRecordedInTheSnapshot() {
+        val repository = VehicleStateRepository({}, { _, _ -> })
         definitions.forEach(repository::registerDefinition)
 
         repository.observe(PleosDriveSubscriptions.GEAR, "GEAR_PARK")
@@ -46,7 +141,6 @@ class VehicleSignalDefinitionsTest {
         repository.observe(PleosDriveSubscriptions.STEERING_ANGLE, "0.00")
         repository.observe(PleosDriveSubscriptions.STEERING_ANGLE, "-45.00")
 
-        assertTrue(events.isEmpty())
         val snapshot = repository.snapshot().associateBy { it.definition.dataKey }
         assertEquals("GEAR_DRIVE", snapshot.getValue(PleosDriveSubscriptions.GEAR).value)
         assertEquals("ON", snapshot.getValue(PleosLampSubscriptions.HIGH_BEAM).value)
