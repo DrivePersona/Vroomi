@@ -171,7 +171,7 @@
 
 ### 구현 추적 이슈
 
-- [#36 overlay runtime 시작과 Activity 비노출](https://github.com/DrivePersona/pleos-voice-companion/issues/36)
-- [#37 캐릭터 주변 floating controls와 overlay sheet](https://github.com/DrivePersona/pleos-voice-companion/issues/37)
-- [#38 Pleos AVD overlay-first E2E 및 화면 증적](https://github.com/DrivePersona/pleos-voice-companion/issues/38)
-- [#39 실제 가챠 draw 활성화 전 획득 정책 결정](https://github.com/DrivePersona/pleos-voice-companion/issues/39)
+- [#36 overlay runtime 시작과 Activity 비노출](https://github.com/DrivePersona/Vroomi/issues/36)
+- [#37 캐릭터 주변 floating controls와 overlay sheet](https://github.com/DrivePersona/Vroomi/issues/37)
+- [#38 Pleos AVD overlay-first E2E 및 화면 증적](https://github.com/DrivePersona/Vroomi/issues/38)
+- [#39 실제 가챠 draw 활성화 전 획득 정책 결정](https://github.com/DrivePersona/Vroomi/issues/39)

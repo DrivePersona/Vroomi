@@ -97,7 +97,7 @@
 
 ## 구현 추적 이슈
 
-- [#36 Pleos 시작 진입점과 Activity 없는 overlay runtime](https://github.com/DrivePersona/pleos-voice-companion/issues/36)
-- [#37 floating controls 및 캐릭터 관리 overlay sheet](https://github.com/DrivePersona/pleos-voice-companion/issues/37)
-- [#38 Pleos AVD UI/lifecycle 검증과 PR 증적](https://github.com/DrivePersona/pleos-voice-companion/issues/38)
-- [#39 첫 가챠 풀 획득 정책](https://github.com/DrivePersona/pleos-voice-companion/issues/39)
+- [#36 Pleos 시작 진입점과 Activity 없는 overlay runtime](https://github.com/DrivePersona/Vroomi/issues/36)
+- [#37 floating controls 및 캐릭터 관리 overlay sheet](https://github.com/DrivePersona/Vroomi/issues/37)
+- [#38 Pleos AVD UI/lifecycle 검증과 PR 증적](https://github.com/DrivePersona/Vroomi/issues/38)
+- [#39 첫 가챠 풀 획득 정책](https://github.com/DrivePersona/Vroomi/issues/39)
