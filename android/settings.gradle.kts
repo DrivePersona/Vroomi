@@ -45,5 +45,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "pleos-voice-companion"
+rootProject.name = "Vroomi"
 include(":app")

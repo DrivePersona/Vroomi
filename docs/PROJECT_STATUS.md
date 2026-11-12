@@ -10,7 +10,7 @@
 
 | 저장소 | 공개 | 역할 |
 | --- | --- | --- |
-| `pleos-voice-companion` | Public | 앱, 웹 시뮬레이터, 설계·검증 문서, 팩 연동 계약 |
+| `Vroomi` | Public | 앱, 웹 시뮬레이터, 설계·검증 문서, 팩 연동 계약 |
 | `voice-pack-sdk` | Private | 클립 재생 SDK, 캐릭터별 음성 팩 제작물, 음성 권리 메타데이터 |
 | `character-pack-sdk` | Private | 캐릭터 GLB 검증·표시 SDK, 캐릭터 에셋, 애니메이션 |
 

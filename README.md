@@ -1,6 +1,6 @@
-# DrivePersona — Pleos Voice Companion
+# Vroomi — Pleos Voice Companion
 
-DrivePersona is an in-car voice companion for Pleos. It converts vehicle events such as braking, turn signals, drive-mode changes, and tire checks into concise character-led voice feedback.
+Vroomi (by DrivePersona) is an in-car voice companion for Pleos. It converts vehicle events such as braking, turn signals, drive-mode changes, and tire checks into concise character-led voice feedback.
 
 This repository is the public review surface for the application: vehicle reaction rules, UI/UX, simulator, and integration contracts are visible here. Approved voice and character assets are intentionally isolated in private SDK repositories.
 
@@ -8,7 +8,7 @@ This repository is the public review surface for the application: vehicle reacti
 
 | Repository | Visibility | Purpose |
 | --- | --- | --- |
-| `DrivePersona/pleos-voice-companion` | Public | This app, web simulator, design documents, and pack integration contracts |
+| `DrivePersona/Vroomi` | Public | This app, web simulator, design documents, and pack integration contracts |
 | `DrivePersona/voice-pack-sdk` | Private | Voice-pack runtime AAR and approved audio packs |
 | `DrivePersona/character-pack-sdk` | Private | Character-pack runtime AAR and approved character packs |
 

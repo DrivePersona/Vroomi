@@ -1,7 +1,7 @@
 # 프로젝트와 PR 작업 정리 v1
 
 **조회 기준:** GitHub 저장소 목록 및 PR/issue 상태, 2026-11-05
-**저장소:** `DrivePersona/pleos-voice-companion`(public), `DrivePersona/voice-pack-sdk`(private), `DrivePersona/character-pack-sdk`(private)
+**저장소:** `DrivePersona/Vroomi`(public), `DrivePersona/voice-pack-sdk`(private), `DrivePersona/character-pack-sdk`(private)
 
 조회된 PR은 **46건**이다: public 앱 22건 병합 + 1건 진행 중, private voice SDK 7건 병합 + 1건 종료/미병합, private character SDK 15건 병합. 총 **44건 병합, 1건 미병합 종료, 1건 진행 중**이다. 별도로 관련 저장소에 열린 이슈는 앱 9건, voice SDK 1건, character SDK 2건이다(2026-11-05 기준).
 
@@ -9,7 +9,7 @@
 
 | 저장소 | 공개 범위 | 책임 |
 | --- | --- | --- |
-| [pleos-voice-companion](https://github.com/DrivePersona/pleos-voice-companion) | Public | 앱, 웹 시뮬레이터, 차량/안전 정책, 팩 연결 계약, 통합 문서와 공개 검증 증거. 상업용 원본 pack asset은 저장하지 않음 |
+| [Vroomi](https://github.com/DrivePersona/Vroomi) | Public | 앱, 웹 시뮬레이터, 차량/안전 정책, 팩 연결 계약, 통합 문서와 공개 검증 증거. 상업용 원본 pack asset은 저장하지 않음 |
 | [voice-pack-sdk](https://github.com/DrivePersona/voice-pack-sdk) | Private | 클립 재생 SDK, manifest 검사, 캐릭터별 음성/13-slot 제작물, 음성 동의 및 이용 권리 메타데이터 |
 | [character-pack-sdk](https://github.com/DrivePersona/character-pack-sdk) | Private | 캐릭터 manifest/GLB 검증·표시, 애니메이션/gesture 계약, 내부 후보와 승인된 캐릭터 에셋 |
 
@@ -35,29 +35,29 @@ GitHub PR 제목은 원문으로 유지했다. 조회 시 #1–#35는 `MERGED`, 
 
 | PR | 병합 작업 | 사용자 흐름상 결과 |
 | --- | --- | --- |
-| [#1](https://github.com/DrivePersona/pleos-voice-companion/pull/1) | `feat: adapt VR overlay to character viewport` | 캐릭터 bounds 기반 overlay 크기 대응 |
-| [#2](https://github.com/DrivePersona/pleos-voice-companion/pull/2) | `chore: update voice pack content to 0.2.0` | 음성 pack content 버전 갱신 |
-| [#15](https://github.com/DrivePersona/pleos-voice-companion/pull/15) | `docs: add Pleos Virtual Console E2E guide` | Virtual Console → Vehicle callback E2E 재현 절차 |
-| [#17](https://github.com/DrivePersona/pleos-voice-companion/pull/17) | `feat: capability-driven vehicle state intake` | capability 중심 읽기 입력 |
-| [#18](https://github.com/DrivePersona/pleos-voice-companion/pull/18) | `feat: react to convenience vehicle state changes` | 조명/창문/도어 편의 상태 |
-| [#19](https://github.com/DrivePersona/pleos-voice-companion/pull/19) | `feat: add HVAC and comfort vehicle subscriptions` | HVAC/좌석/comfort 구독 |
-| [#20](https://github.com/DrivePersona/pleos-voice-companion/pull/20) | `feat: add EV, fuel, and hybrid energy profiles` | capability 기반 에너지 프로필 |
-| [#21](https://github.com/DrivePersona/pleos-voice-companion/pull/21) | `feat: implement vehicle event speech policy` | 주행/안전 이벤트 발화 정책 |
-| [#22](https://github.com/DrivePersona/pleos-voice-companion/pull/22) | `docs: draft canonical 13-slot dialogue matrix` | 상태 ID 및 문구 초안 계약 |
-| [#23](https://github.com/DrivePersona/pleos-voice-companion/pull/23) | `feat: gate character picker with release roster` | 명시적 roster 기반 선택 |
-| [#24](https://github.com/DrivePersona/pleos-voice-companion/pull/24) | `feat: bind character selection to paired voice pack` | 캐릭터 선택 시 voice ID 자동 연결 |
-| [#25](https://github.com/DrivePersona/pleos-voice-companion/pull/25) | `test: strengthen release roster validation` | 권리/자산/slot/gesture 출시 검증 |
-| [#26](https://github.com/DrivePersona/pleos-voice-companion/pull/26) | `ci: validate and open private pack compatibility PRs` | private pack publish 후 public compatibility PR 흐름 |
-| [#27](https://github.com/DrivePersona/pleos-voice-companion/pull/27) | `test: enable debug lifecycle diagnostics` | 디버그 lifecycle 안정성 진단 |
-| [#28](https://github.com/DrivePersona/pleos-voice-companion/pull/28) | `feat: synchronize speech and one-shot gestures` | 재생 시작/종료와 event gesture 연결 |
-| [#29](https://github.com/DrivePersona/pleos-voice-companion/pull/29) | `fix: prevent vehicle subscription startup from blocking the UI` | 차량 구독 시작 지연이 UI를 막지 않게 개선 |
-| [#30](https://github.com/DrivePersona/pleos-voice-companion/pull/30) | `chore: consolidate vehicle, pack, and speech updates into main` | 여러 통합 작업 main 반영 |
-| [#31](https://github.com/DrivePersona/pleos-voice-companion/pull/31) | `docs: add Pleos AVD UI verification evidence` | AVD 화면/차량 입력 증거 기록 |
-| [#32](https://github.com/DrivePersona/pleos-voice-companion/pull/32) | `docs: define Virtual Console as vehicle event source` | 테스트 입력과 앱 callback 경계 명시 |
-| [#33](https://github.com/DrivePersona/pleos-voice-companion/pull/33) | `Expose character picker and internal candidate preview` | 내부 후보 선택 UI |
-| [#34](https://github.com/DrivePersona/pleos-voice-companion/pull/34) | `Pair internal characters with voices and expose 13-slot dialogue status` | 내부 캐릭터/음성 매칭 및 13-slot 표시 |
-| [#35](https://github.com/DrivePersona/pleos-voice-companion/pull/35) | `docs: clarify 33-character release target` | 33-character target/CSV와 importer 검사 명확화 |
-| [#40](https://github.com/DrivePersona/pleos-voice-companion/pull/40) | `docs: define overlay-first companion flow` | WindowManager 중심 PRD/flow/wireframe과 인터랙티브 목업. 현재 리뷰 중 |
+| [#1](https://github.com/DrivePersona/Vroomi/pull/1) | `feat: adapt VR overlay to character viewport` | 캐릭터 bounds 기반 overlay 크기 대응 |
+| [#2](https://github.com/DrivePersona/Vroomi/pull/2) | `chore: update voice pack content to 0.2.0` | 음성 pack content 버전 갱신 |
+| [#15](https://github.com/DrivePersona/Vroomi/pull/15) | `docs: add Pleos Virtual Console E2E guide` | Virtual Console → Vehicle callback E2E 재현 절차 |
+| [#17](https://github.com/DrivePersona/Vroomi/pull/17) | `feat: capability-driven vehicle state intake` | capability 중심 읽기 입력 |
+| [#18](https://github.com/DrivePersona/Vroomi/pull/18) | `feat: react to convenience vehicle state changes` | 조명/창문/도어 편의 상태 |
+| [#19](https://github.com/DrivePersona/Vroomi/pull/19) | `feat: add HVAC and comfort vehicle subscriptions` | HVAC/좌석/comfort 구독 |
+| [#20](https://github.com/DrivePersona/Vroomi/pull/20) | `feat: add EV, fuel, and hybrid energy profiles` | capability 기반 에너지 프로필 |
+| [#21](https://github.com/DrivePersona/Vroomi/pull/21) | `feat: implement vehicle event speech policy` | 주행/안전 이벤트 발화 정책 |
+| [#22](https://github.com/DrivePersona/Vroomi/pull/22) | `docs: draft canonical 13-slot dialogue matrix` | 상태 ID 및 문구 초안 계약 |
+| [#23](https://github.com/DrivePersona/Vroomi/pull/23) | `feat: gate character picker with release roster` | 명시적 roster 기반 선택 |
+| [#24](https://github.com/DrivePersona/Vroomi/pull/24) | `feat: bind character selection to paired voice pack` | 캐릭터 선택 시 voice ID 자동 연결 |
+| [#25](https://github.com/DrivePersona/Vroomi/pull/25) | `test: strengthen release roster validation` | 권리/자산/slot/gesture 출시 검증 |
+| [#26](https://github.com/DrivePersona/Vroomi/pull/26) | `ci: validate and open private pack compatibility PRs` | private pack publish 후 public compatibility PR 흐름 |
+| [#27](https://github.com/DrivePersona/Vroomi/pull/27) | `test: enable debug lifecycle diagnostics` | 디버그 lifecycle 안정성 진단 |
+| [#28](https://github.com/DrivePersona/Vroomi/pull/28) | `feat: synchronize speech and one-shot gestures` | 재생 시작/종료와 event gesture 연결 |
+| [#29](https://github.com/DrivePersona/Vroomi/pull/29) | `fix: prevent vehicle subscription startup from blocking the UI` | 차량 구독 시작 지연이 UI를 막지 않게 개선 |
+| [#30](https://github.com/DrivePersona/Vroomi/pull/30) | `chore: consolidate vehicle, pack, and speech updates into main` | 여러 통합 작업 main 반영 |
+| [#31](https://github.com/DrivePersona/Vroomi/pull/31) | `docs: add Pleos AVD UI verification evidence` | AVD 화면/차량 입력 증거 기록 |
+| [#32](https://github.com/DrivePersona/Vroomi/pull/32) | `docs: define Virtual Console as vehicle event source` | 테스트 입력과 앱 callback 경계 명시 |
+| [#33](https://github.com/DrivePersona/Vroomi/pull/33) | `Expose character picker and internal candidate preview` | 내부 후보 선택 UI |
+| [#34](https://github.com/DrivePersona/Vroomi/pull/34) | `Pair internal characters with voices and expose 13-slot dialogue status` | 내부 캐릭터/음성 매칭 및 13-slot 표시 |
+| [#35](https://github.com/DrivePersona/Vroomi/pull/35) | `docs: clarify 33-character release target` | 33-character target/CSV와 importer 검사 명확화 |
+| [#40](https://github.com/DrivePersona/Vroomi/pull/40) | `docs: define overlay-first companion flow` | WindowManager 중심 PRD/flow/wireframe과 인터랙티브 목업. 현재 리뷰 중 |
 
 조회 결과 main repo에는 PR #3–14와 #16이 등록된 PR로 보이지 않았다. 이 문서는 해당 작업의 존재를 추정하거나 번호를 채워 쓰지 않는다.
 
@@ -102,18 +102,18 @@ GitHub PR 제목은 원문으로 유지했다. 조회 시 #1–#35는 `MERGED`, 
 
 | 이슈 | 상태 | PRD/프로젝트 판정 |
 | --- | --- | --- |
-| app [#3](https://github.com/DrivePersona/pleos-voice-companion/issues/3) — release roster | OPEN | roster 0개인 현재 출시 blocker와 일치. 전 캐릭터 자격 승인 후 닫아야 함 |
-| app [#4](https://github.com/DrivePersona/pleos-voice-companion/issues/4) — character/voice binding | OPEN | PR #24 구현과 겹친다. 구현 완료 사실을 이슈에 링크하고 남은 문제/완료 여부를 maintainer가 확인해 상태 정리 필요 |
-| app [#5](https://github.com/DrivePersona/pleos-voice-companion/issues/5) — 13-clip gate | OPEN | PR #25 구현의 자동 검증과 전체 33×13 승인 음원/권리 준비를 구분. 검증 코드 완료만으로 콘텐츠 완료 처리 금지 |
-| app [#7](https://github.com/DrivePersona/pleos-voice-companion/issues/7) — Pleos 13-clip E2E | CLOSED | 현재 기록상 13개 승인 WAV로 캐릭터 선택→재생한 완료 증거는 없음. 댓글에는 “아직 전제 미충족/미완료”가 남아 있어 닫힘 상태와 완료 기준이 충돌한다. 최종 E2E를 다시 열거나 별도 follow-up 이슈로 추적해야 함 |
-| app [#8](https://github.com/DrivePersona/pleos-voice-companion/issues/8) — 안정성/lifecycle | CLOSED | PR #27은 진단/회귀 범위를 추가했으나 문서에는 soak 및 Pleos lifecycle 검증을 미완료로 기록. 실제 증거를 보강하거나 후속 issue로 관리 필요 |
-| app [#9](https://github.com/DrivePersona/pleos-voice-companion/issues/9) — speech/gesture sync | OPEN | PR #28은 시작 callback 기반 sync를 구현. issue 요구의 per-clip offset/실물 GLB 시연까지 끝났는지 명확히 나눠 완료 조정 필요 |
-| app [#10–14](https://github.com/DrivePersona/pleos-voice-companion/issues) — vehicle intake/state | CLOSED | 코드 작업은 통합됐지만 특정 속성은 이미지/차종에 따라 unavailable. 지원 범위표와 미지원 실측을 유지해야 함 |
-| app [#16](https://github.com/DrivePersona/pleos-voice-companion/issues/16) — dialogue content | OPEN | public draft는 10캐릭터 discussion용. 33개×13 출시 원본과 private 제작물 완료로 오해하지 않도록 단일 authoritative matrix 위치를 지정해야 함 |
-| app [#36](https://github.com/DrivePersona/pleos-voice-companion/issues/36) — overlay runtime without Activity | OPEN | Pleos 지원 시작 진입점과 WindowManager runtime 생명주기; Activity는 명시적 설정/복구에서만 사용 |
-| app [#37](https://github.com/DrivePersona/pleos-voice-companion/issues/37) — floating controls and overlay sheets | OPEN | 캐릭터 anchor 메뉴, 캐릭터 목록/보관함/대사/설정 overlay 구현. #3/#4/#9/#16의 roster, binding, audio-gesture 계약을 재정의하지 않음 |
-| app [#38](https://github.com/DrivePersona/pleos-voice-companion/issues/38) — Pleos AVD overlay-first E2E | OPEN | 실제 HMI에서 Activity 비노출, safe bounds, 제스처, D/P·unknown 숨김/복귀와 PR 증적 확인. #9의 음성-gesture 동기화 증거와 별도 |
-| app [#39](https://github.com/DrivePersona/pleos-voice-companion/issues/39) — acquisition policy | OPEN | 5+11 표시와 실제 draw/grant 활성화 사이의 정책 결정. 결제·확률·재화·중복 규칙은 승인 전까지 미정 |
+| app [#3](https://github.com/DrivePersona/Vroomi/issues/3) — release roster | OPEN | roster 0개인 현재 출시 blocker와 일치. 전 캐릭터 자격 승인 후 닫아야 함 |
+| app [#4](https://github.com/DrivePersona/Vroomi/issues/4) — character/voice binding | OPEN | PR #24 구현과 겹친다. 구현 완료 사실을 이슈에 링크하고 남은 문제/완료 여부를 maintainer가 확인해 상태 정리 필요 |
+| app [#5](https://github.com/DrivePersona/Vroomi/issues/5) — 13-clip gate | OPEN | PR #25 구현의 자동 검증과 전체 33×13 승인 음원/권리 준비를 구분. 검증 코드 완료만으로 콘텐츠 완료 처리 금지 |
+| app [#7](https://github.com/DrivePersona/Vroomi/issues/7) — Pleos 13-clip E2E | CLOSED | 현재 기록상 13개 승인 WAV로 캐릭터 선택→재생한 완료 증거는 없음. 댓글에는 “아직 전제 미충족/미완료”가 남아 있어 닫힘 상태와 완료 기준이 충돌한다. 최종 E2E를 다시 열거나 별도 follow-up 이슈로 추적해야 함 |
+| app [#8](https://github.com/DrivePersona/Vroomi/issues/8) — 안정성/lifecycle | CLOSED | PR #27은 진단/회귀 범위를 추가했으나 문서에는 soak 및 Pleos lifecycle 검증을 미완료로 기록. 실제 증거를 보강하거나 후속 issue로 관리 필요 |
+| app [#9](https://github.com/DrivePersona/Vroomi/issues/9) — speech/gesture sync | OPEN | PR #28은 시작 callback 기반 sync를 구현. issue 요구의 per-clip offset/실물 GLB 시연까지 끝났는지 명확히 나눠 완료 조정 필요 |
+| app [#10–14](https://github.com/DrivePersona/Vroomi/issues) — vehicle intake/state | CLOSED | 코드 작업은 통합됐지만 특정 속성은 이미지/차종에 따라 unavailable. 지원 범위표와 미지원 실측을 유지해야 함 |
+| app [#16](https://github.com/DrivePersona/Vroomi/issues/16) — dialogue content | OPEN | public draft는 10캐릭터 discussion용. 33개×13 출시 원본과 private 제작물 완료로 오해하지 않도록 단일 authoritative matrix 위치를 지정해야 함 |
+| app [#36](https://github.com/DrivePersona/Vroomi/issues/36) — overlay runtime without Activity | OPEN | Pleos 지원 시작 진입점과 WindowManager runtime 생명주기; Activity는 명시적 설정/복구에서만 사용 |
+| app [#37](https://github.com/DrivePersona/Vroomi/issues/37) — floating controls and overlay sheets | OPEN | 캐릭터 anchor 메뉴, 캐릭터 목록/보관함/대사/설정 overlay 구현. #3/#4/#9/#16의 roster, binding, audio-gesture 계약을 재정의하지 않음 |
+| app [#38](https://github.com/DrivePersona/Vroomi/issues/38) — Pleos AVD overlay-first E2E | OPEN | 실제 HMI에서 Activity 비노출, safe bounds, 제스처, D/P·unknown 숨김/복귀와 PR 증적 확인. #9의 음성-gesture 동기화 증거와 별도 |
+| app [#39](https://github.com/DrivePersona/Vroomi/issues/39) — acquisition policy | OPEN | 5+11 표시와 실제 draw/grant 활성화 사이의 정책 결정. 결제·확률·재화·중복 규칙은 승인 전까지 미정 |
 | voice [#5](https://github.com/DrivePersona/voice-pack-sdk/issues/5) | OPEN | 429개 canonical clip, 청취 승인, rights, publish 상태를 추적하는 주 작업 |
 | character [#10](https://github.com/DrivePersona/character-pack-sdk/issues/10) | OPEN | required release `voicePackId`의 schema/manifest 범위 조정 및 compatibility 확인 |
 | character [#11](https://github.com/DrivePersona/character-pack-sdk/issues/11) | OPEN | 실제 GLB gesture 계약/애니메이션 제작 및 시연 증거 |
