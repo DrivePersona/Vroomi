@@ -39,6 +39,10 @@ gpr.key=YOUR_CLASSIC_PAT_WITH_READ_PACKAGES
 
 The release target is **33 characters**, with **13 dialogue slots per character** (one greeting plus 12 vehicle states, 429 slots total). The stable character-to-voice mapping is listed in [docs/CHARACTER_TARGET_INVENTORY_V1.csv](docs/CHARACTER_TARGET_INVENTORY_V1.csv), and the current coverage and release blockers are in [docs/RELEASE_VOICE_CHARACTER_PLAN_V1.md](docs/RELEASE_VOICE_CHARACTER_PLAN_V1.md). The 13-slot count is never a character-count limit. The release roster remains an explicit allowlist and stays empty until every listed pack passes its release gates.
 
+## Documentation
+
+Start at the [documentation map](docs/README.md): project status, roadmap and open decisions, Pleos platform findings, decision log, work log, and research notes.
+
 ## Product and user-flow design
 
 - [Product requirements (PRD v2)](docs/PRODUCT_REQUIREMENTS_V2.md) — product scope, vehicle input contract, safety policy, release criteria, and current constraints.
