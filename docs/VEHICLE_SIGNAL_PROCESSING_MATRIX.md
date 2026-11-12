@@ -35,19 +35,77 @@
 
 이 표의 `36`은 “앱 코드가 구독 중”이라는 뜻이고, `✓`는 그중 실제 에뮬레이터 값까지 확인했다는 뜻이다. 따라서 `36`과 `✓` 개수를 같은 것으로 보면 안 된다.
 
-## 2. Virtual Control 전체 63개
+## 2. Virtual Control 전체 63개 — 개별 상태표
 
-| 영역 | Virtual Control 화면 카드 | 숨김 카드 | 합계 |
-| --- | --- | --- | ---: |
-| Vehicle | `notification-1` 차량 알림 | — | 1 |
-| Motion | `gear-selection`, `brake-pedal-status`, `perf-odometer`, `steering-angle`, `steering-wheel-heat` | `trip-driving-time` | 6 |
-| ADAS | `cruise-control-state`, `cruise-control-target-speed` | — | 2 |
-| Convenience | `etcs-activated`, `etcs-scenario`, `door-pos`, `door-lock`, `trunk-position`, `cabin-lights-switch`, `reading-lights-switch`, `ambient-light-brightness`, `ambient-light-color`, `exterior-lights-mode`, `high-beam-lights`, `hazard-lights`, `stop-lights`, `door-lights`, `turn-signal-state`, `window-position`, `window-lock`, `seat-occupancy`, `windshield-wipers-switch`, `glove-box-door-pos` | `ambient-light-switch`, `escort-lights`, `seat-fore-aft-position`, `seat-fore-aft-move`, `seat-backrest-position`, `seat-backrest-move`, `seat-height-position`, `seat-height-move`, `seat-tilt-position`, `seat-tilt-move`, `seat-lumbar-position`, `seat-lumbar-move` | 32 |
-| Safety | `telltales` (37종) | — | 1 |
-| Energy | `range-remaining`, `ev-battery-level`, `ev-battery-soc`, `ev-battery-capacity`, `ev-charge-current-limit`, `ev-charge-percent-limit`, `ev-charge-switch`, `ev-charge-port` | `power-system-actual` | 9 |
-| Climate | `hvac-power`, `hvac-ac`, `hvac-auto`, `hvac-dual`, `hvac-recirc`, `hvac-fan-speed`, `hvac-fan-direction`, `hvac-defroster`, `hvac-temperature-set`, `hvac-seat-temperature`, `hvac-air-cleaner` | — | 11 |
-| Misc | — | `tire-pressure` | 1 |
-| **합계** | **48개** | **15개** | **63개** |
+아래 표는 63개 고유 카탈로그 항목을 한 행씩 표시한다. `앱 수신`은 main 코드의 구독 상태이고, `에뮬레이터 확인`은 실제 값 전달 확인이다. `현재 사용`은 TTS 또는 애니메이션 반응에 연결되었는지를 뜻한다.
+
+| # | 영역 | 신호 ID | VC | 앱 수신 | 에뮬레이터 확인 | TTS | 애니메이션 | 현재 사용 |
+| ---: | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | ADAS | `cruise-control-target-speed` (크루즈 목표 속도) | 화면 | 구독 | ✓ | 시스템 TTS: CRUISE_TARGET_SET (2초 디바운스) | 없음 | TTS만 |
+| 2 | ADAS | `cruise-control-state` (크루즈 상태) | 화면 | 구독 | △ | 시스템 TTS: CRUISE_ON / CRUISE_OFF | 없음 | TTS만 |
+| 3 | Climate | `hvac-air-cleaner` (공기 청정) | 화면 | 구독 | 미확인 | 캐릭터 클립: COMFORT | gesture 정책 | 반응 |
+| 4 | Climate | `hvac-auto` (공조 자동) | 화면 | 구독 | 미확인 | 캐릭터 클립: COMFORT | gesture 정책 | 반응 |
+| 5 | Climate | `hvac-power` (공조 전원) | 화면 | 구독 | 미확인 | 캐릭터 클립: COMFORT | gesture 정책 | 반응 |
+| 6 | Climate | `hvac-recirc` (내기 순환) | 화면 | 구독 | 미확인 | 캐릭터 클립: COMFORT | gesture 정책 | 반응 |
+| 7 | Climate | `hvac-temperature-set` (설정 온도) | 화면 | 구독 | 미확인 | 캐릭터 클립: COMFORT | gesture 정책 | 반응 |
+| 8 | Climate | `hvac-defroster` (성에 제거) | 화면 | 구독 | 미확인 | 아니오 | 없음 | 상태만 |
+| 9 | Climate | `hvac-fan-speed` (송풍 세기) | 화면 | 구독 | 미확인 | 캐릭터 클립: COMFORT | gesture 정책 | 반응 |
+| 10 | Climate | `hvac-ac` (에어컨(A/C)) | 화면 | 구독 | 미확인 | 캐릭터 클립: COMFORT | gesture 정책 | 반응 |
+| 11 | Climate | `hvac-seat-temperature` (좌석 열선·통풍) | 화면 | 구독 | 미확인 | 아니오 | 없음 | 상태만 |
+| 12 | Climate | `hvac-dual` (좌우 온도 분리) | 화면 | 구독 | 미확인 | 캐릭터 클립: COMFORT | gesture 정책 | 반응 |
+| 13 | Convenience | `glove-box-door-pos` (글로브박스) | 화면 | 구독 | 미확인 | 캐릭터 클립: DOOR | gesture 정책 | 반응 |
+| 14 | Convenience | `door-pos` (도어 열림 상태) | 화면 | 구독 | 미확인 | 캐릭터 클립: DOOR | gesture 정책 | 반응 |
+| 15 | Convenience | `door-lock` (도어 잠금) | 화면 | 구독 | 미확인 | 캐릭터 클립: DOOR | gesture 정책 | 반응 |
+| 16 | Convenience | `reading-lights-switch` (독서등) | 화면 | 구독 | ✓ | 캐릭터 클립: LIGHT | gesture 정책 | 반응 |
+| 17 | Convenience | `turn-signal-state` (방향지시등) | 화면 | 구독 | ✓ | 캐릭터 클립: TURN | gesture 정책 | 반응 |
+| 18 | Convenience | `high-beam-lights` (상향등) | 화면 | 구독 | ✓ | 시스템 TTS: HIGH_BEAM_ON (켜질 때) | 없음 | TTS만 |
+| 19 | Convenience | `cabin-lights-switch` (실내등) | 화면 | 구독 | ✓ | 캐릭터 클립: LIGHT | gesture 정책 | 반응 |
+| 20 | Convenience | `ambient-light-brightness` (앰비언트 밝기) | 화면 | 구독 | ✓ | 캐릭터 클립: LIGHT | gesture 정책 | 반응 |
+| 21 | Convenience | `ambient-light-color` (앰비언트 색상) | 화면 | 구독 | ✓ | 캐릭터 클립: LIGHT | gesture 정책 | 반응 |
+| 22 | Convenience | `windshield-wipers-switch` (와이퍼) | 화면 | 구독 | 미확인 | 아니오 | 없음 | 상태만 |
+| 23 | Convenience | `seat-occupancy` (좌석 착석) | 화면 | 구독 | 미확인 | 캐릭터 클립: COMFORT | gesture 정책 | 반응 |
+| 24 | Convenience | `window-position` (창문 위치) | 화면 | 구독 | 미확인 | 캐릭터 클립: WINDOW | gesture 정책 | 반응 |
+| 25 | Convenience | `window-lock` (창문 잠금) | 화면 | 구독 | 미확인 | 캐릭터 클립: WINDOW | gesture 정책 | 반응 |
+| 26 | Convenience | `trunk-position` (트렁크·프렁크 열림) | 화면 | 구독 | 미확인 | 캐릭터 클립: DOOR | gesture 정책 | 반응 |
+| 27 | Convenience | `exterior-lights-mode` (하향등) | 화면 | 구독 | ✓ | 시스템 TTS: LOW_BEAM_ON (켜질 때)/TAIL_LAMP_ON (켜질 때) | 없음 | TTS만 |
+| 28 | Energy | `range-remaining` (남은 주행거리) | 화면 | 구독 | ✓ | 시스템 TTS: RANGE_LOW / RANGE_CRITICAL | 없음 | TTS만 |
+| 29 | Energy | `ev-battery-level` (배터리 에너지) | 화면 | 구독 | 미확인 | 아니오 | 없음 | 상태만 |
+| 30 | Energy | `ev-battery-soc` (배터리 잔량(SOC)) | 화면 | 구독 | 미확인 | 조건부: ENERGY_LOW | 없음 | 조건부 |
+| 31 | Energy | `ev-charge-port` (충전구) | 화면 | 구독 | 미확인 | 캐릭터 클립: CHARGE_PORT | gesture 정책 | 반응 |
+| 32 | Motion | `gear-selection` (기어) | 화면 | 구독 | ✓ | 시스템 TTS: SHIFT_TO_DRIVE / SHIFT_TO_PARK / SHIFT_TO_REVERSE | 없음 | TTS만 |
+| 33 | Motion | `brake-pedal-status` (브레이크 페달) | 화면 | 구독 | ✓ | 캐릭터 클립: BRAKE | gesture 정책 | 반응 |
+| 34 | Motion | `steering-angle` (조향각) | 화면 | 구독 | ✓ | 시스템 TTS: STEER_BIG (큰 각도) | 없음 | TTS만 |
+| 35 | Motion | `perf-odometer` (주행거리) | 화면 | 구독 | ✓ | 시스템 TTS: ODO_MILESTONE (이정표, 정차 후) | 없음 | TTS만 |
+| 36 | Motion | `steering-wheel-heat` (핸들 열선) | 화면 | 구독 | 미확인 | 아니오 | 없음 | 상태만 |
+| 37 | Convenience | `ambient-light-switch` (앰비언트 모드) | 숨김 | 구독 | ✗ | 캐릭터 클립: LIGHT | gesture 정책 | 반응 |
+| 38 | Convenience | `seat-backrest-position` (등받이 각도) | 숨김 | 가능·미구독 | 미확인 | 아니오 | 없음 | 미사용 |
+| 39 | Convenience | `seat-lumbar-position` (요추 위치) | 숨김 | 가능·미구독 | 미확인 | 아니오 | 없음 | 미사용 |
+| 40 | Convenience | `seat-height-position` (좌석 높이) | 숨김 | 가능·미구독 | 미확인 | 아니오 | 없음 | 미사용 |
+| 41 | Convenience | `seat-fore-aft-position` (좌석 앞뒤 위치) | 숨김 | 가능·미구독 | 미확인 | 아니오 | 없음 | 미사용 |
+| 42 | Convenience | `seat-tilt-position` (좌석 틸트) | 숨김 | 가능·미구독 | 미확인 | 아니오 | 없음 | 미사용 |
+| 43 | Motion | `trip-driving-time` (트립 주행 시간) | 숨김 | 가능·미구독 | 미확인 | 아니오 | 없음 | 미사용 |
+| 44 | Climate | `hvac-fan-direction` (송풍 방향) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 45 | Convenience | `etcs-scenario` (ETCS 시나리오) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 46 | Convenience | `etcs-activated` (ETCS 전원) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 47 | Convenience | `door-lights` (도어 조명) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 48 | Convenience | `hazard-lights` (비상등) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 49 | Convenience | `stop-lights` (제동등) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 50 | Energy | `ev-battery-capacity` (배터리 용량) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 51 | Energy | `ev-charge-percent-limit` (충전 목표 한도) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 52 | Energy | `ev-charge-switch` (충전 스위치) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 53 | Energy | `ev-charge-current-limit` (충전 전류 한도) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 54 | Vehicle | `notification-1` (차량 알림 1) | 화면 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 55 | Convenience | `seat-backrest-move` (등받이 이동 명령) | 숨김 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 56 | Convenience | `escort-lights` (에스코트 조명) | 숨김 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 57 | Convenience | `seat-lumbar-move` (요추 이동 명령) | 숨김 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 58 | Convenience | `seat-height-move` (좌석 높이 이동 명령) | 숨김 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 59 | Convenience | `seat-fore-aft-move` (좌석 앞뒤 이동 명령) | 숨김 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 60 | Convenience | `seat-tilt-move` (좌석 틸트 이동 명령) | 숨김 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 61 | Energy | `power-system-actual` (전원 시스템 상태) | 숨김 | SDK 없음 | 미확인 | 아니오 | 없음 | 미사용 |
+| 62 | Safety | `telltales` (계기판 경고등(텔테일)) | 화면 | PRIVATE | 미확인 | 아니오 | 없음 | 미사용 |
+| 63 | Misc | `tire-pressure` (타이어 압력) | 숨김 | PRIVATE | 미확인 | 아니오 | 없음 | 미사용 |
+
+별도 SDK 전용 신호(카탈로그에 없는 주행 모드·안전벨트 콜백 등)는 아래 처리표와 `VEHICLE_SIGNALS.md`의 106행 표에서 확인한다.
 
 ## 3. 앱 수신·TTS·애니메이션 처리 매트릭스
 
