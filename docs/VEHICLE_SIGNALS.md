@@ -1,6 +1,8 @@
 # 차량 신호 현황 (수신 가능한 신호)
 
-> 기준: `origin/main` e786dd0(PR #42 머지 뒤)의 구독 코드 + 이 문서를 갱신한 PR의 코드, Pleos Connect v2.1.0 에뮬레이터(Virtual Console 63개 카탈로그), SDK `ai.pleos.playground:Vehicle:2.3.2`. 같은 내용의 필터 가능한 표는 [`vehicle-signals.xlsx`](vehicle-signals.xlsx)이다.
+Virtual Control에 보이는 63개 카탈로그 항목을 노출·앱 수신·TTS·애니메이션 단계로 나눈 요약은 [차량 신호 처리 매트릭스](VEHICLE_SIGNAL_PROCESSING_MATRIX.md)를 참조한다.
+
+> 기준: 현재 `main`의 구독 코드와 PR #42·#43 반영 내용, Pleos Connect v2.1.0 에뮬레이터(Virtual Console 63개 카탈로그), SDK `ai.pleos.playground:Vehicle:2.3.2`. 같은 내용의 필터 가능한 표는 [`vehicle-signals.xlsx`](vehicle-signals.xlsx)이다.
 
 ## 요약
 
