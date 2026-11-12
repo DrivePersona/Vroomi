@@ -20,6 +20,7 @@ DrivePersona Pleos Voice Companion의 모든 문서가 여기서 시작한다. �
 | --- | --- | --- |
 | [PROJECT_STATUS](PROJECT_STATUS.md) | 지금 무엇이 되고, 무엇이 검증됐고, 무엇이 안 됐는지 | 상태 (갱신형) |
 | [ROADMAP](ROADMAP.md) | 앞으로 할 일, 출시 차단 요소, 열린 결정, 알려진 문제 | 계획 (갱신형) |
+| [PROJECT_OVERVIEW_DECK.pptx](PROJECT_OVERVIEW_DECK.pptx) | 제품·기능·현황·로드맵을 한 번에 보는 30쪽 발표 자료 (2026-11-12 기준, 발표자 노트 포함) | 발표 자료 (스냅샷) |
 | [DECISIONS](DECISIONS.md) | 결정 기록: 무엇을, 왜, 언제, 누가 | 기록 (추가형) |
 | [WORK_LOG](WORK_LOG.md) | 날짜순 작업 흐름 | 기록 (추가형) |
 
