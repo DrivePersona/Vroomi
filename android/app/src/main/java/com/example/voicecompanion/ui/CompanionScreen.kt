@@ -1,5 +1,6 @@
 package com.example.voicecompanion.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -45,6 +46,7 @@ internal fun CompanionScreen(viewModel: CompanionViewModel, onStartVrEffect: () 
 }
 
 @Composable
+@SuppressLint("UnusedBoxWithConstraintsScope")
 private fun CompanionContent(state: CompanionUiState, onTouch: (CompanionTouch) -> Unit) {
     BoxWithConstraints(
         Modifier
