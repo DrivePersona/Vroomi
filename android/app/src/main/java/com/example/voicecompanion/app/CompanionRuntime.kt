@@ -179,7 +179,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     // 캐릭터 곁 오버레이(탭·floating 메뉴·시트)가 보는 상태와 하는 일. 가챠 보유는 획득 정책(#39)이 정해지기 전까지 어디서도 늘리지 않는다.
     private var ownedCharacterIds by mutableStateOf<Set<String>>(emptySet())
     private var greetingEnabled by mutableStateOf(true)
-    private var greetedThisProcess = false
+    private var greetingChanceUsed = false // 세션 첫 표시 때 한 번만 인사를 정한다. 그때 설정이 꺼져 있거나 말할 수 없어도 기회는 지나간 것이다
     private var lastTouchAt = -TOUCH_COOLDOWN_MS
     private val overlayPort = object : OverlayPort {
         override fun state() = overlayState()
@@ -640,22 +640,30 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         prefs.edit().putBoolean(PREF_GREETING, enabled).apply()
     }
 
-    /** 세션(지금은 이 프로세스)에서 캐릭터가 처음 나타났을 때 설정이 켜져 있으면 인사를 한 번 한다. 시작 통로(#36)가 생기면 그쪽 세션 정의로 바꾼다. */
+    /**
+     * 세션(지금은 이 프로세스)에서 캐릭터가 **처음** 나타났을 때 한 번만 인사를 정한다. 설정이 꺼져 있거나 그때 말할 수 없어도 그 기회는
+     * 지나간 것이라, 나중에 설정을 켜도 소급해서 인사하지 않는다. [syncCharacterOverlay]는 몸짓 갱신마다 불려 SHOWING이 반복되므로 이 한 번의
+     * 결정이 필요하다(인사를 재생하다 몸짓이 바뀌어 다시 불리는 재진입도 첫 줄이 막는다). 시작 통로(#36)가 생기면 그쪽 세션 정의로 바꾼다.
+     */
     private fun greetOnce() {
-        if (greetedThisProcess || !greetingEnabled || driving) return
+        if (greetingChanceUsed) return
+        greetingChanceUsed = true
+        if (!greetingEnabled || driving) return
         val character = activeCharacterPack ?: return
         if (linkedVoicePackId(character) != activePack.id || activePack.variantCount(GREETING_EVENT) < 1) return
-        greetedThisProcess = true
-        playClip(GREETING_EVENT, 0, "시작 인사")
+        // 말하지 못하면 건너뛰고 다시 시도하지 않는다(내비 안내 같은 다른 소리 위에 늦게 끼어들지 않는다).
+        if (!playClip(GREETING_EVENT, 0, "시작 인사")) {
+            Log.d(TAG, "시작 인사를 건너뛰었어요: 오디오 포커스를 얻지 못했거나 재생할 수 없어요 (다시 시도하지 않아요)")
+        }
     }
 
-    /** 활성 음성 팩의 클립 하나를 한 번 재생한다. [previewDialogue]와 같은 순서이고, 이벤트 허용 목록 검사만 없다. */
-    private fun playClip(eventId: String, variantIndex: Int, label: String) {
+    /** 활성 음성 팩의 클립 하나를 한 번 재생한다. [previewDialogue]와 같은 순서이고, 이벤트 허용 목록 검사만 없다. 재생을 시작했으면 true다. */
+    private fun playClip(eventId: String, variantIndex: Int, label: String): Boolean {
         val seq = ++speakSeq
         previewSeq = seq
         cancelGesture()
         packs.stopAll()
-        if (!requestFocus()) return
+        if (!requestFocus()) return false
         val request = SpeakRequest(
             eventId = eventId,
             text = activePack.lineFor(eventId, variantIndex) ?: "",
@@ -679,6 +687,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             done = { onMain { if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() } } },
         )
         if (!started) audio.abandonFocus()
+        return started
     }
 
     // ---- Platform: 엔진이 바깥 세계와 만나는 곳 ----
