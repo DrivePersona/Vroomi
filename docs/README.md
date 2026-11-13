@@ -41,6 +41,7 @@ DrivePersona Pleos Voice Companion의 모든 문서가 여기서 시작한다. �
 | --- | --- |
 | [PLEOS_PLATFORM_FINDINGS](PLEOS_PLATFORM_FINDINGS.md) | Pleos SDK·TTS·권한·주행 규제·에뮬레이터 실측과 함정 |
 | [VEHICLE_SIGNALS](VEHICLE_SIGNALS.md) · [xlsx](vehicle-signals.xlsx) | 수신 가능한 차량 신호 전체 표 |
+| [VEHICLE_SIGNAL_PROCESSING_MATRIX](VEHICLE_SIGNAL_PROCESSING_MATRIX.md) | Virtual Control 노출·앱 수신·TTS·캐릭터 애니메이션 처리 매트릭스 |
 | [PLEOS_VIRTUAL_CONSOLE_E2E](PLEOS_VIRTUAL_CONSOLE_E2E.md) | Virtual Console 신호가 앱 반응으로 이어지는지 확인하는 절차 |
 
 ### 릴리스·검증 증적
