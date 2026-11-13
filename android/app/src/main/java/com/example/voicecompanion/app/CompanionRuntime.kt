@@ -5,8 +5,10 @@ import com.example.voicecompanion.data.audio.AndroidAudio
 import com.example.voicecompanion.data.audio.VoicePreset
 import com.example.voicecompanion.data.vehicle.PleosVehicleInputRepository
 import com.example.voicecompanion.data.vehicle.VehicleInputRepository
+import com.example.voicecompanion.domain.FocusChange
 import com.example.voicecompanion.domain.Platform
 import com.example.voicecompanion.domain.ReactionEngine
+import com.example.voicecompanion.domain.handleFocusChange
 import com.example.voicecompanion.domain.model.DropReason
 import com.example.voicecompanion.domain.model.LogEntry
 import com.example.voicecompanion.domain.model.VehicleEvent
@@ -109,7 +111,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     // 위 상태 프로퍼티보다 뒤에 둔다. 앞에 두면 생성 중에 콜백이 아직 만들어지지 않은 상태 값을 건드려 NPE가 난다.
     private val audio = AndroidAudio(
         app,
-        onFocusLost = { onMain { engine.focusLost() } },
+        onFocusChange = { change -> onMain { onFocusChange(change) } },
         onState = { s -> onMain { ttsStatus = s } },
     )
 
@@ -608,6 +610,17 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 usedFallback = true
                 row?.let { it.note += " · $why" }
             },
+        )
+    }
+
+    /** 포커스 변화에 응답한다. 클립은 음량만 낮추고(CAN_DUCK), TTS는 낮출 수 없어 멈춘다. 규칙은 [handleFocusChange]. */
+    private fun onFocusChange(change: FocusChange) {
+        handleFocusChange(
+            change,
+            duck = { on ->
+                packs.duckAll(on).also { Log.i(TAG, "ducking ${if (on) "시작" else "해제"} → ${if (it) "음량 조절함" else "조절할 음성 없음"}") }
+            },
+            stop = engine::focusLost,
         )
     }
 
