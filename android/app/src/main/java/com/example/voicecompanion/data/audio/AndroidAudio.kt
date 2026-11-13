@@ -11,14 +11,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.util.Log
-import com.example.voicecompanion.domain.FocusChange
-
-/** 목소리 프리셋. 웹 시뮬레이터와 같은 값. 안전 이벤트는 연출 없이 중립 음성으로 읽는다. */
-enum class VoicePreset(val label: String, val pitch: Float, val rate: Float) {
-    BRIGHT("밝은", 1.6f, 1.15f),
-    CALM("차분한", 1.0f, 0.95f),
-    DEEP("굵은", 0.6f, 0.9f),
-}
+import com.example.voicecompanion.domain.usecase.FocusChange
 
 /**
  * 오디오 포커스 + 기본 음성. 콜백은 아무 스레드에서나 올 수 있다.

@@ -1,7 +1,5 @@
-package com.example.voicecompanion
+package com.example.voicecompanion.domain.usecase
 
-import com.example.voicecompanion.domain.FocusChange
-import com.example.voicecompanion.domain.handleFocusChange
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

@@ -1,7 +1,7 @@
-package com.example.voicecompanion.ui.event
+package com.example.voicecompanion.presentation.event
 
-import com.example.voicecompanion.data.audio.VoicePreset
 import com.example.voicecompanion.domain.model.VehicleEvent
+import com.example.voicecompanion.domain.model.VoicePreset
 
 /** Compose에서 발생한 터치·입력. 화면 요소는 Runtime을 직접 호출하지 않는다. */
 sealed interface CompanionTouch {

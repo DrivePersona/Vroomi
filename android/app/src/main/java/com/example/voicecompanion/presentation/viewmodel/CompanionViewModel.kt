@@ -1,14 +1,13 @@
-package com.example.voicecompanion.ui.viewmodel
+package com.example.voicecompanion.presentation.viewmodel
 
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.voicecompanion.app.CompanionRuntime
-import com.example.voicecompanion.app.CompanionUiRuntime
-import com.example.voicecompanion.app.model.CompanionUiState
-import com.example.voicecompanion.ui.event.CompanionTouch
-import com.example.voicecompanion.ui.event.CompanionUiEffect
+import com.example.voicecompanion.presentation.CompanionUiRuntime
+import com.example.voicecompanion.presentation.event.CompanionTouch
+import com.example.voicecompanion.presentation.event.CompanionUiEffect
+import com.example.voicecompanion.presentation.model.CompanionUiState
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,7 +39,7 @@ class CompanionViewModel(
 
     fun setSettingsVisible(visible: Boolean) = runtime.setSettingsVisible(visible)
 
-    class Factory(private val runtime: CompanionRuntime) : ViewModelProvider.Factory {
+    class Factory(private val runtime: CompanionUiRuntime) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(CompanionViewModel::class.java)) { "지원하지 않는 ViewModel: ${modelClass.name}" }

@@ -1,11 +1,11 @@
-package com.example.voicecompanion.app.model
+package com.example.voicecompanion.presentation.model
 
-import com.example.voicecompanion.data.audio.VoicePreset
 import com.example.voicecompanion.domain.model.VehicleEvent
 import com.example.voicecompanion.domain.model.VehicleDataState
 import com.example.voicecompanion.domain.model.VehicleAvailability
 import com.example.voicecompanion.domain.model.VehicleEnergyProfile
 import com.example.voicecompanion.domain.model.isEnergyEvent
+import com.example.voicecompanion.domain.model.VoicePreset
 import com.example.voicecompanion.characterpack.model.CharacterPack
 
 /** 화면이 렌더링하는 읽기 전용 상태. UI는 Runtime의 가변 상태를 직접 읽지 않는다. */

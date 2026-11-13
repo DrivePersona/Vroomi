@@ -2,13 +2,9 @@ package com.example.voicecompanion.app
 
 import com.example.voicecompanion.BuildConfig
 import com.example.voicecompanion.data.audio.AndroidAudio
-import com.example.voicecompanion.data.audio.VoicePreset
-import com.example.voicecompanion.data.vehicle.PleosVehicleInputRepository
-import com.example.voicecompanion.data.vehicle.VehicleInputRepository
-import com.example.voicecompanion.domain.FocusChange
+import com.example.voicecompanion.data.repository.PleosVehicleRepository
 import com.example.voicecompanion.domain.Platform
 import com.example.voicecompanion.domain.ReactionEngine
-import com.example.voicecompanion.domain.handleFocusChange
 import com.example.voicecompanion.domain.model.DropReason
 import com.example.voicecompanion.domain.model.LogEntry
 import com.example.voicecompanion.domain.model.VehicleEvent
@@ -20,9 +16,16 @@ import com.example.voicecompanion.domain.model.VehicleAvailability
 import com.example.voicecompanion.domain.model.VehicleSpeechPolicy
 import com.example.voicecompanion.domain.model.SpeechOutput
 import com.example.voicecompanion.domain.model.isEnergyEvent
-import com.example.voicecompanion.app.model.CompanionUiState
-import com.example.voicecompanion.app.model.ReactionLogItem
-import com.example.voicecompanion.app.model.VoiceDialogueRow
+import com.example.voicecompanion.domain.model.VoicePreset
+import com.example.voicecompanion.domain.repository.VehicleRepository
+import com.example.voicecompanion.domain.usecase.ProcessVehicleInputUseCase
+import com.example.voicecompanion.domain.usecase.VehicleInputAction
+import com.example.voicecompanion.domain.usecase.FocusChange
+import com.example.voicecompanion.domain.usecase.handleFocusChange
+import com.example.voicecompanion.presentation.model.CompanionUiState
+import com.example.voicecompanion.presentation.model.ReactionLogItem
+import com.example.voicecompanion.presentation.model.VoiceDialogueRow
+import com.example.voicecompanion.presentation.CompanionUiRuntime
 import com.example.voicecompanion.app.release.ReleaseRoster
 import com.example.voicecompanion.app.release.CharacterDialogueMatrix
 import com.example.voicecompanion.app.release.CharacterGestureResolver
@@ -74,7 +77,8 @@ class LogRow(val time: String, val text: String) {
 class CompanionRuntime(private val app: Application) : Platform, CompanionUiRuntime {
     private val main = Handler(Looper.getMainLooper())
     private val prefs = app.getSharedPreferences("voice-companion", Context.MODE_PRIVATE)
-    private val vehicleInputs: VehicleInputRepository = PleosVehicleInputRepository(app)
+    private val vehicleInputs: VehicleRepository = PleosVehicleRepository(app)
+    private val processVehicleInput = ProcessVehicleInputUseCase()
     private val vehicleCatalogLock = Any()
     private var pendingVehicleCatalog: List<VehicleDataState>? = null
     private var vehicleCatalogPublishScheduled = false
@@ -254,23 +258,16 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     /** Repository가 SDK별 콜백을 공통 차량 입력 모델로 바꾼 뒤 이곳으로 보낸다. */
     private fun acceptVehicleInput(input: VehicleInput) {
-        // 시작 직후 수십 개의 capability/초기 값 콜백이 한 번에 온다. 매번 Compose
-        // 상태를 바꾸지 않고 가장 최근 카탈로그만 한 프레임 뒤에 반영한다.
-        if (input is VehicleInput.Catalog) {
-            scheduleVehicleCatalog(input.states)
-            return
-        }
-        if (input is VehicleInput.Status) {
-            scheduleVehicleStatus(input.source, input.message)
-            return
-        }
         onMain {
-        when (input) {
-            is VehicleInput.Event -> if ((!input.event.isEnergyEvent || energyProfileAvailable()) && (!driving || input.allowWhileDriving)) engine.emit(input.event)
-            is VehicleInput.Driving -> changeDriving(input.isDriving)
-            is VehicleInput.Status -> Unit
-            is VehicleInput.Catalog -> Unit
-        }
+            // Compose 상태(energyProfileAvailable 포함)는 메인 스레드에서만 읽는다.
+            val action = processVehicleInput.execute(input, energyProfileAvailable())
+            when (action) {
+                is VehicleInputAction.Catalog -> scheduleVehicleCatalog(action.states)
+                is VehicleInputAction.Status -> scheduleVehicleStatus(action.source, action.message)
+                is VehicleInputAction.Emit -> if (!driving || action.allowWhileDriving) engine.emit(action.event)
+                is VehicleInputAction.Driving -> changeDriving(action.isDriving)
+                VehicleInputAction.Ignore -> Unit
+            }
         }
     }
 

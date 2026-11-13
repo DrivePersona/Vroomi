@@ -1,4 +1,4 @@
-package com.example.voicecompanion.domain
+package com.example.voicecompanion.domain.usecase
 
 /** 오디오 포커스 변화(안드로이드 AUDIOFOCUS_* 값을 네 가지로 줄인 것). */
 enum class FocusChange { GAIN, LOSS, LOSS_TRANSIENT, CAN_DUCK }
