@@ -18,6 +18,10 @@ data class CollectionSlot(
  * 출시 로스터 순서대로 앞 [BASIC_SLOTS]개는 항상 쓸 수 있는 기본 캐릭터, 다음 [POOL_SLOTS]개는 획득해야 하는 첫 후보 풀이다(이슈 #37).
  * 보유 여부는 [of]에 넘기는 보유 id 집합이 정한다. 보유와 장착은 별개이고, 보유하지 않은 후보는 장착할 수 없다.
  * 17번째부터는 첫 웨이브 밖이라 선택기에 나오지 않는다. 전체 목표 33개는 그대로다.
+ *
+ * 등급(기본/후보)은 [of]에 넘기는 목록의 **위치**로만 정한다. 그 목록은 걸러내기 전의 출시 로스터 순서이고, 지금 쓸 수 없는
+ * 캐릭터(읽을 수 없는 팩·부적격)는 목록에서 빼지 않고 null로 둔다. 빼 버리면 뒤의 후보가 한 칸씩 당겨져, 보유하지 않았는데
+ * 기본 캐릭터가 되어 장착할 수 있게 된다.
  */
 class CharacterCollection private constructor(
     val basic: List<CollectionSlot>,
@@ -33,7 +37,8 @@ class CharacterCollection private constructor(
         const val POOL_SLOTS = 11
         private const val EMPTY_NAME = "미정"
 
-        fun of(roster: List<CharacterRef>, owned: Set<String>, equippedId: String?): CharacterCollection {
+        /** [roster]는 걸러내기 전의 출시 로스터 순서다. 쓸 수 없는 칸은 null이고, 그 칸은 비어 있는 채로 등급 위치를 지킨다. */
+        fun of(roster: List<CharacterRef?>, owned: Set<String>, equippedId: String?): CharacterCollection {
             fun slot(ref: CharacterRef?, tier: SlotTier) = CollectionSlot(
                 characterId = ref?.id,
                 name = ref?.name ?: EMPTY_NAME,

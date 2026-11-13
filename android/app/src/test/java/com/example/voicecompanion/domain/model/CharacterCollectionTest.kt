@@ -65,6 +65,33 @@ class CharacterCollectionTest {
     }
 
     @Test
+    fun `앞쪽 기본 캐릭터를 쓸 수 없어도 뒤의 후보가 기본으로 당겨지지 않는다`() {
+        // char.3(기본)을 읽을 수 없다. 목록에서 빼지 않고 null로 두므로 칸 위치와 등급이 그대로다.
+        val full: List<CharacterRef?> = roster(16).mapIndexed { i, ref -> if (i == 2) null else ref }
+        val collection = CharacterCollection.of(full, owned = emptySet(), equippedId = null)
+
+        assertEquals(listOf("char.1", "char.2", null, "char.4", "char.5"), collection.basic.map { it.characterId })
+        assertEquals((6..16).map { "char.$it" }, collection.pool.map { it.characterId })
+        assertTrue(collection.pool.all { it.tier == SlotTier.POOL && !it.owned })
+        assertFalse(collection.isEquippable("char.6")) // 6번째는 여전히 보유해야 쓸 수 있다
+        assertFalse(collection.basic[2].owned)
+    }
+
+    @Test
+    fun `후보 칸을 쓸 수 없어도 다른 후보의 칸 위치와 보유 판정은 그대로다`() {
+        val full: List<CharacterRef?> = roster(16).mapIndexed { i, ref -> if (i == 6) null else ref } // char.7
+        val collection = CharacterCollection.of(full, owned = setOf("char.8", "char.7"), equippedId = "char.8")
+
+        assertNull(collection.pool[1].characterId) // char.7 칸은 비어 있다
+        assertFalse(collection.pool[1].owned) // 보유 집합에 있어도 쓸 수 없는 칸은 보유로 세지 않는다
+        assertEquals("char.8", collection.pool[2].characterId)
+        assertTrue(collection.pool[2].owned)
+        assertTrue(collection.pool[2].equipped)
+        assertEquals(1, collection.ownedPoolCount)
+        assertFalse(collection.isEquippable("char.7"))
+    }
+
+    @Test
     fun `장착 중인 캐릭터에만 장착 표시가 붙고 보유와는 별개다`() {
         val collection = CharacterCollection.of(roster(16), owned = emptySet(), equippedId = "char.3")
         assertEquals(listOf("char.3"), (collection.basic + collection.pool).filter { it.equipped }.map { it.characterId })

@@ -599,12 +599,18 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         internalPreview = internalCandidatePreview,
     )
 
-    private fun characterCollection() = CharacterCollection.of(
-        // 읽을 수 없는 후보(INVALID)는 칸을 차지하지 않는다. 눌러도 아무 일이 없는 칸이 생기지 않게 한다.
-        roster = characterPackList.filter { it.state is CharacterPackState.Ready }.map { CharacterRef(it.id, it.name) },
-        owned = ownedCharacterIds,
-        equippedId = activeCharacterPack?.id,
-    )
+    private fun characterCollection(): CharacterCollection {
+        // 칸의 등급(기본/후보)은 걸러내기 전의 출시 로스터 순서로 정한다. 읽을 수 없거나 부적격인 캐릭터는 칸을 비워 둘 뿐
+        // 뒤의 후보를 앞으로 당기지 않는다(당기면 보유 없이 기본이 되어 장착할 수 있다). 빈 칸은 눌러도 아무 일이 없다.
+        // 내부 후보 미리보기는 출시 로스터가 아니라 후보 목록 순서를 따른다.
+        val order = if (internalCandidatePreview) candidateCharacters.map { it.id } else releaseRoster.entries.map { it.characterId }
+        val usable = characterPackList.filter { it.state is CharacterPackState.Ready }.associateBy { it.id }
+        return CharacterCollection.of(
+            roster = order.map { id -> usable[id]?.let { CharacterRef(it.id, it.name) } },
+            owned = ownedCharacterIds,
+            equippedId = activeCharacterPack?.id,
+        )
+    }
 
     /** 캐릭터를 짧게 탭했다(TOUCH). 활성 음성 팩에 TOUCH 클립이 있어야 재생하고, 없으면 다른 대사로 대신하지 않고 요청만 남긴다. */
     private fun touchCharacter() = onMain {
