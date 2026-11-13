@@ -91,6 +91,11 @@ internal class CharacterOverlayHost(
             val view = createCharacterView(pack) ?: return OverlayShowResult.REJECTED
             view.contentDescription = "캐릭터: 짧게 누르면 반응하고 길게 누르면 메뉴가 열려요"
             view.setOnTouchListener(gestureListener())
+            // 손가락 터치는 위 리스너가 직접 판정한다. TalkBack 두 번 탭·스위치 접근은 터치 이벤트 없이 클릭/길게 클릭 동작으로 들어오므로,
+            // 탭 판정(finish의 TAP)도 이 클릭 리스너로 보내 두 길이 같은 곳(onCharacterClick)에서 만나게 한다.
+            view.setOnClickListener { onCharacterClick() }
+            view.setOnLongClickListener { openMenu(); true }
+            view.isSoundEffectsEnabled = false // performClick이 새 클릭음을 내지 않게 한다(지금까지 탭에는 소리가 없었다)
             frame.addView(view, FrameLayout.LayoutParams(requestedSize.width, requestedSize.height))
             characterView = view
             overlaySize = requestedSize
@@ -243,7 +248,7 @@ internal class CharacterOverlayHost(
     }
 
     /** 터치 한 번을 [OverlayGesture]에 넘기고, 판정이 나면 탭은 TOUCH로, 길게 누름은 메뉴로, 끌기는 창 이동으로 옮긴다. */
-    @SuppressLint("ClickableViewAccessibility") // 탭은 접근성 클릭 대신 TOUCH로 직접 넘긴다
+    @SuppressLint("ClickableViewAccessibility") // 탭은 finish()가 performClick()으로 보낸다(접근성 클릭과 같은 길)
     private fun gestureListener(): View.OnTouchListener = View.OnTouchListener { _, e ->
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> usableArea().let { a ->
@@ -275,10 +280,9 @@ internal class CharacterOverlayHost(
 
     private fun finish(result: OverlayGesture.Result) {
         when (result) {
-            // 교체 중에는 두 캐릭터가 겹쳐 반응하지 않게 탭을 받지 않는다.
             OverlayGesture.Result.TAP -> {
                 Log.d(TAG, "오버레이 제스처: 탭 → TOUCH")
-                if (characterSwitch.phase == CharacterSwitch.Phase.IDLE) port.touchCharacter()
+                characterView?.performClick() // 클릭 리스너(onCharacterClick)가 TOUCH를 보낸다
             }
             OverlayGesture.Result.DRAG_END -> {
                 Log.d(TAG, "오버레이 제스처: 끌기 끝 → 위치 저장 (${params.x}, ${params.y})")
@@ -286,6 +290,13 @@ internal class CharacterOverlayHost(
             }
             OverlayGesture.Result.NONE -> Unit
         }
+    }
+
+    /** 탭 판정과 접근성 클릭(TalkBack 두 번 탭·스위치 접근)이 만나는 곳. 교체 중에는 두 캐릭터가 겹쳐 반응하지 않게 받지 않는다. */
+    private fun onCharacterClick() {
+        // 메뉴·시트가 열려 있으면 손가락 터치는 바깥 탭으로 닫기만 하고 캐릭터에 닿지 않는다. 접근성 클릭도 같게 TOUCH를 보내지 않는다.
+        if (controls.surface != OverlaySurface.Closed) return
+        if (characterSwitch.phase == CharacterSwitch.Phase.IDLE) port.touchCharacter()
     }
 
     private fun savePosition() {
