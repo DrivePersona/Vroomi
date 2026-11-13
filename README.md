@@ -30,6 +30,8 @@ To verify that a Virtual Console vehicle signal reaches the installed app and st
 
 The vehicle signals the app can receive (SDK method, permission, reaction wiring, emulator verification) are listed in [docs/platform/VEHICLE_SIGNALS.md](docs/platform/VEHICLE_SIGNALS.md) and [docs/platform/vehicle-signals.xlsx](docs/platform/vehicle-signals.xlsx). The cross-layer split between Virtual Control, app reception, TTS, and character animation is in [docs/platform/VEHICLE_SIGNAL_PROCESSING_MATRIX.md](docs/platform/VEHICLE_SIGNAL_PROCESSING_MATRIX.md).
 
+The Android runtime startup path and its boot-versus-ignition limitation are documented in [Pleos runtime startup](docs/PLEOS_RUNTIME_STARTUP.md).
+
 For an internal Android build, place GitHub Packages credentials outside source control in `~/.gradle/gradle.properties`:
 
 ```properties
