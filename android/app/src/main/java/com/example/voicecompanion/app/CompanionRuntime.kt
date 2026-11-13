@@ -27,7 +27,11 @@ import com.example.voicecompanion.app.release.CharacterGestureResolver
 import com.example.voicecompanion.ui.overlay.CharacterOverlayHost
 import com.example.voicecompanion.ui.overlay.OverlayShowResult
 import com.example.voicecompanion.ui.overlay.VrOverlayInput
+import com.example.voicecompanion.ui.overlay.OverlayPort
 import com.example.voicecompanion.ui.overlay.VrOverlayPolicy
+import com.example.voicecompanion.app.model.CharacterCollection
+import com.example.voicecompanion.app.model.CharacterRef
+import com.example.voicecompanion.app.model.OverlayUiState
 import com.example.voicecompanion.voicepack.data.AssetPackSource
 import com.example.voicecompanion.voicepack.data.PackRepository
 import com.example.voicecompanion.voicepack.domain.ClipPackFactory
@@ -165,7 +169,21 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     var vrOverlayPermissionRequired by mutableStateOf(false)
         private set
     private var settingsVisible = true
-    private val characterOverlay = CharacterOverlayHost(app, prefs)
+
+    // 캐릭터 곁 오버레이(탭·floating 메뉴·시트)가 보는 상태와 하는 일. 가챠 보유는 획득 정책(#39)이 정해지기 전까지 어디서도 늘리지 않는다.
+    private var ownedCharacterIds by mutableStateOf<Set<String>>(emptySet())
+    private var greetingEnabled by mutableStateOf(true)
+    private var greetedThisProcess = false
+    private var lastTouchAt = -TOUCH_COOLDOWN_MS
+    private val overlayPort = object : OverlayPort {
+        override fun state() = overlayState()
+        override fun touchCharacter() = this@CompanionRuntime.touchCharacter()
+        override fun equipCharacter(characterId: String) = this@CompanionRuntime.equipCharacter(characterId)
+        override fun previewDialogue(eventId: String, variantIndex: Int) = this@CompanionRuntime.previewDialogue(eventId, variantIndex)
+        override fun setGreetingEnabled(enabled: Boolean) = changeGreetingEnabled(enabled)
+        override fun setParkedAvatarVisible(enabled: Boolean) = changeVrEnabled(enabled)
+    }
+    private val characterOverlay = CharacterOverlayHost(app, prefs, overlayPort)
 
     /** 내부 디버그 APK에서만 후보 GLB를 확인한다. 출시 빌드는 반드시 로스터를 따른다. */
     private val internalCandidatePreview: Boolean
@@ -208,6 +226,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         // Remove the legacy independent voice choice. The active voice is now derived from the selected character manifest.
         prefs.edit().remove("voicepack.selected").apply()
         vrEnabled = prefs.getBoolean(PREF_VR_ENABLED, false)
+        ownedCharacterIds = prefs.getStringSet(PREF_OWNED_CHARACTERS, emptySet()).orEmpty().toSet()
+        greetingEnabled = prefs.getBoolean(PREF_GREETING, true)
         VehicleEvent.entries.forEach { e ->
             val saved = prefs.getString("line.${e.name}", null)?.take(MAX_LINE)
             typedLines[e] = saved ?: e.defaultLine
@@ -505,7 +525,10 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         )
         if (VrOverlayPolicy.shouldShow(input)) {
             when (characterOverlay.show(pack!!, characterAnimation)) {
-                OverlayShowResult.SHOWING -> vrOverlayStatus = "정차 배경 위에 ${pack.name}를 표시 중이에요 · 캐릭터를 누르면 설정을 열어요"
+                OverlayShowResult.SHOWING -> {
+                    vrOverlayStatus = "정차 배경 위에 ${pack.name}를 표시 중이에요 · 캐릭터를 길게 누르면 메뉴가 열려요"
+                    greetOnce()
+                }
                 OverlayShowResult.PERMISSION_REQUIRED -> vrOverlayStatus = "VR 표시 권한이 필요해요"
                 OverlayShowResult.REJECTED -> vrOverlayStatus = "이 기기에서는 VR 오버레이 창을 열지 못했어요"
             }
@@ -555,6 +578,94 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             note = { msg ->
                 onMain {
                     Log.d(TAG, "대사 미리듣기 $eventId[$variantIndex]: $msg")
+                    if (msg == PLAYBACK_STARTED && eventId in VehicleSpeechPolicy.characterClipEventIds) {
+                        startGesture(eventId, seq, clipGesture)
+                    }
+                }
+            },
+            done = { onMain { if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() } } },
+        )
+        if (!started) audio.abandonFocus()
+    }
+
+    // ---- 캐릭터 곁 오버레이: 탭(TOUCH)·메뉴·시트 ----
+    private fun overlayState(): OverlayUiState = OverlayUiState(
+        collection = characterCollection(),
+        activeCharacterId = activeCharacterPack?.id,
+        activeCharacterName = activeCharacterPack?.name,
+        dialogueRows = dialogueRows(),
+        greetingEnabled = greetingEnabled,
+        parkedAvatarVisible = vrEnabled,
+        notice = characterPackNotice,
+        internalPreview = internalCandidatePreview,
+    )
+
+    private fun characterCollection() = CharacterCollection.of(
+        // 읽을 수 없는 후보(INVALID)는 칸을 차지하지 않는다. 눌러도 아무 일이 없는 칸이 생기지 않게 한다.
+        roster = characterPackList.filter { it.state is CharacterPackState.Ready }.map { CharacterRef(it.id, it.name) },
+        owned = ownedCharacterIds,
+        equippedId = activeCharacterPack?.id,
+    )
+
+    /** 캐릭터를 짧게 탭했다(TOUCH). 활성 음성 팩에 TOUCH 클립이 있어야 재생하고, 없으면 다른 대사로 대신하지 않고 요청만 남긴다. */
+    private fun touchCharacter() = onMain {
+        if (driving) return@onMain
+        val character = activeCharacterPack ?: return@onMain
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastTouchAt < TOUCH_COOLDOWN_MS) return@onMain
+        lastTouchAt = now
+        val ready = linkedVoicePackId(character) == activePack.id &&
+            activePack.canSpeak(TOUCH_EVENT) && activePack.variantCount(TOUCH_EVENT) > 0
+        Log.d(TAG, "TOUCH ${character.id}: ${if (ready) "클립 재생" else "TOUCH 클립이 없어요"}")
+        if (ready) playClip(TOUCH_EVENT, 0, "TOUCH")
+    }
+
+    /** 시트에서 캐릭터를 골랐다. 기본 5개이거나 보유한 가챠 후보만 장착하고 나머지는 거절한다. 캐릭터와 음성 팩은 [selectCharacterPack]이 함께 바꾼다(이슈 #4). */
+    private fun equipCharacter(characterId: String) = onMain {
+        if (driving) return@onMain
+        if (!characterCollection().isEquippable(characterId)) {
+            Log.w(TAG, "캐릭터 $characterId 장착 거부: 기본 5개나 보유한 가챠 후보가 아니에요")
+            return@onMain
+        }
+        selectCharacterPack(characterId)
+    }
+
+    private fun changeGreetingEnabled(enabled: Boolean) {
+        greetingEnabled = enabled
+        prefs.edit().putBoolean(PREF_GREETING, enabled).apply()
+    }
+
+    /** 세션(지금은 이 프로세스)에서 캐릭터가 처음 나타났을 때 설정이 켜져 있으면 인사를 한 번 한다. 시작 통로(#36)가 생기면 그쪽 세션 정의로 바꾼다. */
+    private fun greetOnce() {
+        if (greetedThisProcess || !greetingEnabled || driving) return
+        val character = activeCharacterPack ?: return
+        if (linkedVoicePackId(character) != activePack.id || activePack.variantCount(GREETING_EVENT) < 1) return
+        greetedThisProcess = true
+        playClip(GREETING_EVENT, 0, "시작 인사")
+    }
+
+    /** 활성 음성 팩의 클립 하나를 한 번 재생한다. [previewDialogue]와 같은 순서이고, 이벤트 허용 목록 검사만 없다. */
+    private fun playClip(eventId: String, variantIndex: Int, label: String) {
+        val seq = ++speakSeq
+        previewSeq = seq
+        cancelGesture()
+        packs.stopAll()
+        if (!requestFocus()) return
+        val request = SpeakRequest(
+            eventId = eventId,
+            text = activePack.lineFor(eventId, variantIndex) ?: "",
+            neutral = false,
+            volume = MAX_VOLUME,
+            pitch = preset.pitch,
+            rate = preset.rate,
+            variantIndex = variantIndex,
+        )
+        val clipGesture = activePack.gestureFor(eventId, variantIndex)
+        val started = activePack.voice.speak(
+            request,
+            note = { msg ->
+                onMain {
+                    Log.d(TAG, "$label $eventId[$variantIndex]: $msg")
                     if (msg == PLAYBACK_STARTED && eventId in VehicleSpeechPolicy.characterClipEventIds) {
                         startGesture(eventId, seq, clipGesture)
                     }
@@ -696,6 +807,10 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         private const val MAX_VOLUME = 0.8f // 음량 상한(§6). 엔진과 미리듣기가 같은 값을 쓴다
         private const val PREF_CHARACTER_PACK = "characterpack.selected"
         private const val PREF_VR_ENABLED = "characterpack.vr.enabled"
+        private const val PREF_OWNED_CHARACTERS = "collection.owned"
+        private const val PREF_GREETING = "settings.greeting"
+        private const val TOUCH_EVENT = "TOUCH"
+        private const val TOUCH_COOLDOWN_MS = 1500L // 잦은 탭 반복을 제한한다(PRD)
         private const val TAG = "VoiceCompanion"
     }
 }
