@@ -150,6 +150,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     )
     private var speakSeq = 0 // 가장 최근 말하기 요청의 번호. 늦게 온 이전 요청의 done이 새 요청의 포커스를 놓지 않게 한다
     private var previewSeq = -1 // 주행 시작 시 진행 중인 대사 미리듣기를 끊는다
+    private var engineSpeechSeq = 0 // 가장 최근 엔진 반응 음성(차량 신호 반응·안전 안내)의 요청 번호
+    private var engineSpeaking = false // 그 음성이 아직 끝나지 않았다. TOUCH·시작 인사는 이 동안 말하지 않는다(안전 안내가 연출에 밀리면 안 된다)
     private var gestureStart: Runnable? = null
 
     // 출시 캐릭터는 manifest voicePackId, 내부 후보는 previewVoicePackId로 음성 팩을 결정한다.
@@ -616,6 +618,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private fun touchCharacter() = onMain {
         if (driving) return@onMain
         val character = activeCharacterPack ?: return@onMain
+        // 차량 반응이나 안전 안내가 나오는 중이면 끊지 않는다. 건너뛴 탭은 쿨다운을 쓰지 않는다.
+        if (engineSpeaking) {
+            Log.d(TAG, "TOUCH ${character.id}: 반응 음성이 나오는 중이라 건너뛰어요")
+            return@onMain
+        }
         val now = SystemClock.elapsedRealtime()
         if (now - lastTouchAt < TOUCH_COOLDOWN_MS) return@onMain
         lastTouchAt = now
@@ -651,6 +658,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (!greetingEnabled || driving) return
         val character = activeCharacterPack ?: return
         if (linkedVoicePackId(character) != activePack.id || activePack.variantCount(GREETING_EVENT) < 1) return
+        // 차량 반응이나 안전 안내가 나오는 중이면 인사로 끊지 않는다.
+        if (engineSpeaking) {
+            Log.d(TAG, "시작 인사를 건너뛰었어요: 반응 음성이 나오는 중이에요 (다시 시도하지 않아요)")
+            return
+        }
         // 말하지 못하면 건너뛰고 다시 시도하지 않는다(내비 안내 같은 다른 소리 위에 늦게 끼어들지 않는다).
         if (!playClip(GREETING_EVENT, 0, "시작 인사")) {
             Log.d(TAG, "시작 인사를 건너뛰었어요: 오디오 포커스를 얻지 못했거나 재생할 수 없어요 (다시 시도하지 않아요)")
@@ -703,6 +715,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         val neutralDelivery = neutral || output == SpeechOutput.NEUTRAL_CLIP || output == SpeechOutput.SYSTEM_TTS
         val useSystemTtsOnly = output == SpeechOutput.SYSTEM_TTS
         val seq = ++speakSeq
+        engineSpeechSeq = seq
+        engineSpeaking = true
         cancelGesture()
         val gestureEventId = VehicleSpeechPolicy.canonicalEventId(event).takeIf {
             !driving && !neutralDelivery && output == SpeechOutput.CHARACTER_CLIP && activePack.canSpeak(it)
@@ -728,7 +742,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 selectedClipGesture = activePack.gestureFor(request.eventId, variantIndex)
             },
             // 포커스는 가장 최근 요청이 끝났을 때만 놓는다. 끊긴 이전 요청의 늦은 done이 새 요청의 포커스를 놓으면 안 된다.
-            done = { onMain { if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() } } },
+            // 엔진 음성이 끝났다는 표시는 그와 별개다: 미리듣기가 speakSeq를 올렸어도 이 음성이 끝난 사실은 반영한다.
+            done = { onMain {
+                if (seq == engineSpeechSeq) engineSpeaking = false
+                if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() }
+            } },
             onFallback = { why ->
                 usedFallback = true
                 row?.let { it.note += " · $why" }
@@ -748,6 +766,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     }
 
     override fun stop() {
+        engineSpeaking = false // 모든 음성을 끊었다. done이 오기 전에 TOUCH가 막히지 않게 한다
         cancelGesture()
         packs.stopAll()
         audio.abandonFocus()
