@@ -66,6 +66,9 @@ internal class CharacterOverlayHost(
         close = ::closeControls,
         equip = ::equip,
         resetPosition = ::resetPosition,
+        // '그래도 끄기'를 누르면 Runtime이 lock()으로 이 창을 동기로 떼는데, 그러면 자기 클릭을 처리하는 도중에 창이 사라진다.
+        // closeControls와 같은 이유로 클릭 처리가 끝난 다음 루프로 미룬다. 주행 잠금(lock)은 이 길을 거치지 않으니 그대로 즉시다.
+        setParkedAvatarVisible = { enabled -> main.post { port.setParkedAvatarVisible(enabled) } },
     )
     private val controlsWindow = ComposeOverlayWindow(context, windowManager)
     private val hintWindow = ComposeOverlayWindow(context, windowManager)
