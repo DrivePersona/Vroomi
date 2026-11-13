@@ -1,7 +1,7 @@
 package com.example.voicecompanion.app.release
 
-import com.example.voicecompanion.app.model.VoiceDialogueRow
-import com.example.voicecompanion.app.model.VoiceDialogueVariant
+import com.example.voicecompanion.presentation.model.VoiceDialogueRow
+import com.example.voicecompanion.presentation.model.VoiceDialogueVariant
 import com.example.voicecompanion.voicepack.domain.GREETING_EVENT
 import com.example.voicecompanion.voicepack.domain.VoicePack
 

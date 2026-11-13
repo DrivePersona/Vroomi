@@ -42,9 +42,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.example.voicecompanion.app.model.CharacterCollection
-import com.example.voicecompanion.app.model.CollectionSlot
-import com.example.voicecompanion.app.model.OverlayUiState
+import com.example.voicecompanion.domain.model.CharacterCollection
+import com.example.voicecompanion.domain.model.CollectionSlot
+import com.example.voicecompanion.presentation.model.OverlayUiState
 import com.example.voicecompanion.ui.component.CompanionSecondaryButton
 import com.example.voicecompanion.ui.theme.CompanionTheme
 import com.example.voicecompanion.ui.theme.CompanionTokens

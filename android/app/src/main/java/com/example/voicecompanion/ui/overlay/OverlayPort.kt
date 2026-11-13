@@ -1,6 +1,6 @@
 package com.example.voicecompanion.ui.overlay
 
-import com.example.voicecompanion.app.model.OverlayUiState
+import com.example.voicecompanion.presentation.model.OverlayUiState
 
 /**
  * 캐릭터 곁 오버레이가 앱과 주고받는 창구. 호스트와 시트는 Runtime·ViewModel·CompanionTouch를 직접 알지 않는다.

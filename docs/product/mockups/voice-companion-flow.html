@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pleos Voice Companion · overlay-first 목업</title>
+<style>
+:root{--ink:#18212b;--muted:#5c6875;--line:#d7dde4;--surface:#fff;--base:#f3f5f7;--violet:#5b4db3;--tint:#eeecff;--shadow:0 8px 24px #14203330}
+*{box-sizing:border-box}body{margin:0;background:#e9edf1;color:var(--ink);font-family:Inter,"Noto Sans KR","Malgun Gothic",sans-serif}
+.page{max-width:1600px;margin:auto;padding:12px}.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px;color:var(--muted);font-size:12px}.head strong{color:var(--ink);font-size:14px}.tools{display:flex;gap:5px;flex-wrap:wrap}.tool{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:white;color:var(--ink);font:inherit;font-size:11px;cursor:pointer}.tool.on{color:var(--violet);border-color:var(--violet);background:var(--tint)}
+.hmi{position:relative;aspect-ratio:16/9;width:100%;overflow:hidden;border:1px solid #cfd5dd;border-radius:12px;background:var(--base);box-shadow:var(--shadow);isolation:isolate}.shell{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;user-select:none}
+/* Keep the real Pleos frame and vehicle area; replace the captured debug Activity pane with a clearly schematic map underlay. */
+.map{position:absolute;z-index:2;left:33.35%;right:0;top:7%;bottom:6%;overflow:hidden;background:#f4f6fa;color:#202936}.roads{position:absolute;inset:0;width:100%;height:100%;opacity:.8}.map-label{position:absolute;color:#8b96a4;font-size:clamp(8px,.55vw,12px);letter-spacing:.02em}.map-label.a{left:23%;top:18%}.map-label.b{left:69%;top:58%}.map-label.c{left:39%;top:73%}.map-river{position:absolute;left:30%;top:-22%;width:14%;height:145%;transform:rotate(19deg);background:#e0edf5;border-left:1px solid #d0e0ec;border-right:1px solid #d0e0ec;opacity:.7}
+.map-top{position:absolute;top:2%;right:1.5%;width:42px;height:42px;display:grid;place-items:center;background:#fff;border:1px solid #d8dee5;font-weight:800;font-size:12px}.map-side{position:absolute;right:1.5%;bottom:3%;display:grid;gap:3px}.map-side button{width:42px;height:42px;background:white;border:1px solid #d8dee5;font-size:18px}.search{position:absolute;left:1%;bottom:3%;display:flex;align-items:center;gap:12px;width:min(34%,340px);height:52px;padding:0 16px;background:#08090c;color:white;font-size:clamp(11px,.75vw,18px);box-shadow:0 3px 10px #10182820}.pin{position:absolute;left:58%;top:51%;width:42px;height:42px;border:4px solid #1387ef;border-radius:50%;background:#ffffffad;display:grid;place-items:center;color:#1387ef;font-size:21px}
+.note{position:absolute;z-index:3;left:35%;top:8%;padding:6px 10px;border:1px solid #d7dde4;border-radius:9px;background:#ffffffed;font-size:clamp(8px,.55vw,11px);box-shadow:0 2px 8px #18212b12}.note b{color:var(--violet)}
+.avatar{position:absolute;z-index:5;left:45%;top:37%;width:clamp(62px,5.1vw,132px);height:auto;filter:drop-shadow(0 6px 6px #1b203033);transition:transform .2s;pointer-events:none}.avatar.pulse{transform:translateY(-7px) rotate(-3deg)}.avatar-label{position:absolute;z-index:6;left:45%;top:64%;font-size:clamp(7px,.48vw,10px);color:#67717f;background:#fff;border:1px solid var(--line);border-radius:99px;padding:4px 7px;white-space:nowrap}
+.hit{position:absolute;z-index:6;left:44%;top:36%;width:9%;height:30%;border:0;background:transparent;cursor:pointer;touch-action:none}.hit:focus-visible{outline:3px solid var(--violet);border-radius:50%}
+.menu{position:absolute;z-index:7;inset:0;pointer-events:none;opacity:0;transition:opacity .15s}.menu.open{opacity:1}.menu button{position:absolute;pointer-events:auto;display:flex;align-items:center;gap:7px;min-height:39px;padding:7px 11px;border:1px solid #d8d3ef;border-radius:22px;background:#fff;color:#332b62;box-shadow:0 4px 14px #18212b35;font-size:clamp(8px,.55vw,11px);font-weight:700;white-space:nowrap;cursor:pointer}.menu button:hover{background:var(--tint);border-color:var(--violet)}.menu .char{left:37%;top:32%}.menu .gacha{left:53%;top:31%}.menu .voice{left:36%;top:46%}.menu .settings{left:54%;top:46%}.menu .close{left:49%;top:26%;width:34px;height:34px;min-height:34px;justify-content:center;padding:0;font-size:17px;border-radius:50%}
+.sheet{position:absolute;z-index:8;left:68%;top:17%;width:min(27%,350px);max-height:70%;display:none;flex-direction:column;overflow:hidden;background:#f8f9fb;border:1px solid #d8dee6;border-radius:14px;box-shadow:0 12px 32px #10182830}.sheet.open{display:flex}.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:white;border-bottom:1px solid #e3e7ec}.sheet-head strong{font-size:clamp(11px,.78vw,15px)}.sheet-head button{border:0;border-radius:50%;width:28px;height:28px;background:#f1f2f5;font-size:18px;cursor:pointer}.sheet-body{padding:10px 12px 13px;overflow:auto;font-size:clamp(9px,.58vw,11px)}.sheet-body p{margin:0 0 9px;color:var(--muted);line-height:1.4}.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0;padding:8px;border:1px solid var(--line);border-radius:9px;background:white}.row button,.primary{border:0;border-radius:7px;background:var(--tint);color:var(--violet);font-weight:700;padding:7px 9px;cursor:pointer;font-size:inherit}.row.selected{border:2px solid var(--violet);background:#f7f5ff}.primary{width:100%;margin-top:7px;background:var(--violet);color:white}.badge{padding:3px 6px;border-radius:6px;background:#e9edf1;color:#596574;font-size:9px}.toast{position:absolute;z-index:11;left:41%;bottom:9%;max-width:35%;padding:9px 13px;border-radius:9px;background:#1c2430ed;color:white;font-size:clamp(8px,.6vw,12px);opacity:0;transform:translateY(7px);transition:.18s;pointer-events:none}.toast.show{opacity:1;transform:none}.drive{position:absolute;z-index:10;inset:7% 0 6%;display:none;pointer-events:none;background:transparent}.drive.show{display:block}.drive-card{position:absolute;top:3%;right:6%;max-width:380px;padding:8px 12px;border:1px solid var(--line);border-radius:99px;background:#ffffffed;text-align:center;box-shadow:var(--shadow)}.drive-card strong{font-size:11px}.drive-card p{display:none}.foot{display:flex;justify-content:space-between;gap:14px;padding:9px 2px 0;color:var(--muted);font-size:10px;line-height:1.45}.foot span{max-width:50%}
+@media(max-width:760px){.page{padding:5px}.head{align-items:flex-start;flex-direction:column}.hmi{min-height:440px;aspect-ratio:auto}.shell{object-fit:cover;object-position:left center}.map{left:34%;top:7%;bottom:6%}.menu .char{left:35%}.menu .gacha{left:54%}.menu .voice{left:34%}.menu .settings{left:55%}.menu .close{left:49%}.sheet{left:57%;width:40%;max-height:64%;top:20%}.avatar{left:43%;top:39%}.hit{left:42%;top:38%;width:13%;height:28%}.avatar-label{left:40%;top:67%}.foot{flex-direction:column}.foot span{max-width:100%}}
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="head"><div><strong>Pleos HMI · WindowManager overlay-first 목업</strong><br>기존 차량 화면을 유지하고 캐릭터 주변 floating controls로 기능을 엽니다.</div>
+    <div class="tools" aria-label="목업 전용 조작"><button class="tool on" id="park">P · 정차</button><button class="tool" id="drive">D · 주행</button><button class="tool" id="boot">세션 인사</button><button class="tool" id="tap">캐릭터 탭</button><button class="tool on" id="hold">길게 누름 · 메뉴</button></div>
+  </header>
+  <section class="hmi" aria-label="Pleos HMI 위 캐릭터 overlay 목업">
+    <img class="shell" src="../../evidence/pleos-final-merged.png" alt="Pleos Connect AVD 화면 프레임과 차량 영역">
+    <div class="map" aria-label="목업용 지도 배경">
+      <div class="map-river"></div>
+      <svg class="roads" viewBox="0 0 1700 1250" preserveAspectRatio="none" aria-hidden="true">
+        <g fill="none" stroke="#fff" stroke-width="34"><path d="M-40 250 C350 170 510 400 930 250 S1430 130 1740 300"/><path d="M-20 620 C300 760 590 530 880 680 S1390 900 1740 690"/><path d="M130 0 C260 270 170 480 380 690 S520 1030 460 1280"/><path d="M770 -30 C650 230 850 410 720 620 S900 990 820 1280"/><path d="M1330 -40 C1190 240 1350 450 1190 700 S1300 1030 1170 1290"/></g>
+        <g fill="none" stroke="#dce2e9" stroke-width="3"><path d="M-40 250 C350 170 510 400 930 250 S1430 130 1740 300"/><path d="M-20 620 C300 760 590 530 880 680 S1390 900 1740 690"/><path d="M130 0 C260 270 170 480 380 690 S520 1030 460 1280"/><path d="M770 -30 C650 230 850 410 720 620 S900 990 820 1280"/><path d="M1330 -40 C1190 240 1350 450 1190 700 S1300 1030 1170 1290"/></g>
+        <g fill="#e8ecf1"><rect x="170" y="385" width="135" height="80" rx="9"/><rect x="490" y="80" width="130" height="95" rx="9"/><rect x="1000" y="390" width="150" height="95" rx="9"/><rect x="1430" y="850" width="155" height="100" rx="9"/><rect x="850" y="1020" width="180" height="80" rx="9"/></g>
+      </svg>
+      <span class="map-label a">서로마을길</span><span class="map-label b">생활로</span><span class="map-label c">큰길</span>
+      <div class="map-top">2D<br>▲</div><div class="pin">▲</div>
+      <div class="search">⌕　어디로 갈까요?</div><div class="map-side"><button aria-label="음량">◖))</button><button aria-label="설정">⚙</button></div>
+    </div>
+    <div class="note"><b>정차 중</b> · Pleos 화면 위 캐릭터만 표시</div>
+    <svg class="avatar" id="avatar" viewBox="0 0 140 250" role="img" aria-label="선정 전 임시 캐릭터 실루엣">
+      <ellipse cx="70" cy="238" rx="38" ry="7" fill="#283041" opacity=".18"/>
+      <path d="M45 53 Q24 39 32 19 L48 29 59 8 73 27 92 9 98 32 116 23 106 54 96 66Z" fill="#382e3d"/>
+      <ellipse cx="72" cy="49" rx="28" ry="34" fill="#f0d2bd"/>
+      <path d="M45 40 Q46 12 73 16 Q101 16 101 42 L89 31 79 37 67 28 57 42Z" fill="#443542"/>
+      <circle cx="62" cy="51" r="2.4" fill="#242330"/><circle cx="82" cy="51" r="2.4" fill="#242330"/><path d="M66 66 Q72 69 78 65" fill="none" stroke="#a66061" stroke-width="2" stroke-linecap="round"/>
+      <path d="M47 84 Q70 73 96 85 L111 129 99 142 105 213 83 218 71 155 58 218 35 213 43 144 27 129Z" fill="#272839"/>
+      <path d="M47 86 28 99 8 133 16 140 43 119 M95 86 113 99 132 132 124 140 98 118" fill="none" stroke="#f0d2bd" stroke-width="10" stroke-linecap="round"/>
+      <path d="M51 89 72 108 91 88 85 140 71 155 57 140Z" fill="#5b4db3"/><path d="M61 111 71 123 81 111" fill="none" stroke="#eeeaff" stroke-width="4"/>
+      <path d="M37 211 59 211 55 238 31 238Z M83 211 105 211 109 238 85 238Z" fill="#353240"/><path d="M30 238h27 M84 238h28" stroke="#171923" stroke-width="7" stroke-linecap="round"/>
+    </svg>
+    <span class="avatar-label">임시 실루엣 · 승인 GLB로 교체</span>
+    <button class="hit" id="hit" aria-label="목업 캐릭터를 탭하거나 길게 누르기"></button>
+    <div class="menu open" id="menu" aria-label="캐릭터 주변 floating controls">
+      <button class="char" data-sheet="characters">◉　캐릭터 바꾸기</button><button class="gacha" data-sheet="collection">✦　가챠 · 보관함</button>
+      <button class="voice" data-sheet="dialogue">♫　대사 듣기</button><button class="settings" data-sheet="settings">⚙　설정</button><button class="close" id="closeMenu" aria-label="메뉴 닫기">×</button>
+    </div>
+    <aside class="sheet" id="sheet" aria-live="polite"><div class="sheet-head"><strong id="sheetTitle">캐릭터 바꾸기</strong><button id="closeSheet" aria-label="닫기">×</button></div><div class="sheet-body" id="sheetBody"></div></aside>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="drive" id="driveMask"><div class="drive-card"><strong>주행 중 · 캐릭터 숨김</strong><p>캐릭터와 floating controls, 보관함, 수동 음성 조작을 잠급니다.<br>Pleos 차량 화면과 기존 차량 이벤트 처리는 유지합니다.</p></div></div>
+  </section>
+  <footer class="foot"><span>기반: Pleos Connect AVD의 상단 상태/차량 영역/시스템 바. 기존 컴패니언 앱 pane은 남기지 않으며, 지도 영역은 목업용 스케매틱입니다.</span><span>이 목업은 UI 상태만 시연합니다. 실제 WindowManager, 자동 시작, 결제, WAV 재생 및 차량 신호 제어는 수행하지 않습니다.</span></footer>
+</main>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)}, owned={}, current='기본 후보 01', driving=false, menuOpen=true, timer;
+  var basics=[1,2,3,4,5], gacha=[1,2,3,4,5,6,7,8,9,10,11];
+  function toast(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(timer);timer=setTimeout(function(){$('toast').classList.remove('show')},2600)}
+  function closeSheet(){$('sheet').classList.remove('open')}
+  function openMenu(value){if(driving)return;menuOpen=value;$('menu').classList.toggle('open',value);if(value)closeSheet()}
+  function slot(n,group){var name=(group==='basic'?'기본 후보 ':'가챠 후보 ')+(n<10?'0':'')+n;var isOwned=group==='basic'||owned[n];return '<div class="row '+(name===current?'selected':'')+'"><span>'+name+' <span class="badge">'+(isOwned?(name===current?'장착 중':'보유'):'미보유')+'</span></span><button data-equip="'+name+'" '+(!isOwned?'disabled':'')+'>선택</button></div>'}
+  function showSheet(kind){if(driving)return;closeSheet();$('menu').classList.remove('open');var title='',html='';
+    if(kind==='characters'){title='캐릭터 바꾸기';html='<p>선택한 캐릭터의 전용 VoicePack이 함께 적용됩니다.</p>'+basics.map(function(n){return slot(n,'basic')}).join('')+gacha.filter(function(n){return owned[n]}).map(function(n){return slot(n,'gacha')}).join('')+'<p class="badge">기본 5 · 첫 가챠 11 · 전체 목표 33</p>'}
+    if(kind==='collection'){title='가챠 · 보관함';html='<p>첫 후보 11개 · 뽑기 정책 미정. 목업은 결제와 실제 보유권한을 만들지 않습니다.</p>'+gacha.map(function(n){return slot(n,'gacha')}).join('')+'<button class="primary" id="draw">랜덤 결과 시연</button>'}
+    if(kind==='dialogue'){title='캐릭터 대사';var lines=[['GREETING','세션 인사'],['TOUCH','캐릭터 터치'],['BRAKE','브레이크'],['TURN','방향지시등'],['MODE','드라이브 모드'],['WARNING','차량 경고']];html='<p>'+current+'의 고정 대사입니다. 문구 편집은 없고 행을 누르면 연결된 WAV를 재생하는 설계입니다.</p>'+lines.map(function(x){return '<div class="row"><span>'+x[1]+'</span><button data-voice="'+x[0]+'">▶ 듣기</button></div>'}).join('')}
+    if(kind==='settings'){title='캐릭터 설정';html='<p>짧은 설정만 overlay sheet에서 제공합니다.</p><div class="row"><span>세션 시작 인사</span><button data-toggle>켜짐</button></div><div class="row"><span>정차 중 캐릭터 표시</span><button data-toggle>켜짐</button></div><div class="row"><span>캐릭터 위치 초기화</span><button data-reset>초기화</button></div>'}
+    $('sheetTitle').textContent=title;$('sheetBody').innerHTML=html;$('sheet').classList.add('open');
+    document.querySelectorAll('[data-equip]').forEach(function(b){b.onclick=function(){var next=b.getAttribute('data-equip');var old=current;closeSheet();toast(old+' 작별 → '+next+' 합류 · 음성 상태 시연');current=next;setTimeout(function(){showSheet('characters')},800)}});
+    document.querySelectorAll('[data-voice]').forEach(function(b){b.onclick=function(){toast(b.getAttribute('data-voice')+' WAV 재생 상태 시연 · 오디오 미연결')}});
+    document.querySelectorAll('[data-toggle]').forEach(function(b){b.onclick=function(){b.textContent=b.textContent==='켜짐'?'꺼짐':'켜짐'}});
+    var draw=$('draw');if(draw)draw.onclick=function(){var n=gacha[Math.floor(Math.random()*gacha.length)];$('sheetTitle').textContent='새 후보 · G'+(n<10?'0':'')+n;$('sheetBody').innerHTML='<p>목업 랜덤 결과입니다. 실제 확률·비용·중복 정책은 표시하지 않습니다.</p><div class="row"><strong>가챠 후보 '+(n<10?'0':'')+n+'</strong><span class="badge">목업 결과</span></div><button class="primary" id="claim">보관함에 추가 · 목업</button>'; $('claim').onclick=function(){owned[n]=true;toast('가챠 후보 '+(n<10?'0':'')+n+' 보관함 등록 시연');showSheet('characters')}};
+  }
+  function setDriving(value){driving=value;$('driveMask').classList.toggle('show',value);$('avatar').style.display=value?'none':'';$('.avatar-label').style.display=value?'none':'';$('hit').style.display=value?'none':'';$('menu').classList.remove('open');closeSheet();$('park').classList.toggle('on',!value);$('drive').classList.toggle('on',value);if(!value){$('menu').classList.toggle('open',menuOpen);toast('정차 확인 · overlay 조작 가능')}else toast('주행 상태 · 수동 overlay 숨김/잠금')}
+  document.querySelectorAll('[data-sheet]').forEach(function(b){b.onclick=function(){showSheet(b.getAttribute('data-sheet'))}});
+  $('closeMenu').onclick=function(){openMenu(false);toast('X · floating menu만 닫았습니다')};$('closeSheet').onclick=closeSheet;
+  $('park').onclick=function(){setDriving(false)};$('drive').onclick=function(){setDriving(true)};$('boot').onclick=function(){if(!driving)toast('세션 시작 · 저장 상태 복원 → 정차 확인 → GREETING 1회 시연')};$('tap').onclick=function(){if(driving)return;closeSheet();openMenu(false);$('avatar').classList.add('pulse');setTimeout(function(){$('avatar').classList.remove('pulse')},350);toast('TOUCH · 캐릭터 WAV와 승인 동작 시연 · 오디오 미연결')};$('hold').onclick=function(){openMenu(!menuOpen)};
+  var start=0,moved=false,hold; $('hit').addEventListener('pointerdown',function(e){if(driving)return;start=Date.now();moved=false;hold=setTimeout(function(){moved=true;openMenu(true);toast('제자리 길게 누름 · floating controls 열기')},500)});
+  $('hit').addEventListener('pointerup',function(){clearTimeout(hold);if(!moved&&Date.now()-start<500)$('tap').click()});$('hit').addEventListener('pointermove',function(){if(Date.now()-start>80){moved=true;clearTimeout(hold)}});$('hit').addEventListener('pointerleave',function(){clearTimeout(hold)});$('hit').addEventListener('contextmenu',function(e){e.preventDefault();openMenu(true)});
+})();
+</script>
+</body>
+</html>

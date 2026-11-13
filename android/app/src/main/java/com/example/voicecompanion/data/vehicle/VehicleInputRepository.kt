@@ -1,13 +1,13 @@
 package com.example.voicecompanion.data.vehicle
 
 import android.content.Context
+import com.example.voicecompanion.data.datasource.VehicleDataSource
+import com.example.voicecompanion.data.mapper.VehicleInputMapper
 import com.example.voicecompanion.domain.model.VehicleInput
 
-/** 차량 입력원을 바꿔 끼우기 위한 저장소 계약. 테스트·시뮬레이터·다른 차량 SDK도 같은 모델을 전달한다. */
-interface VehicleInputRepository {
-    fun start(onInput: (VehicleInput) -> Unit)
-    fun stop()
-}
+/** 이전 패키지 호환용 이름. 새 코드에서는 [VehicleDataSource]를 사용한다. */
+@Deprecated("Use VehicleDataSource", ReplaceWith("VehicleDataSource"))
+interface VehicleInputRepository : VehicleDataSource
 
 /** Pleos Vehicle SDK와 CarUxRestrictions를 공통 [VehicleInput] 모델로 바꾼다. */
 class PleosVehicleInputRepository(
@@ -22,14 +22,14 @@ class PleosVehicleInputRepository(
         started = true
         carUx = CarUxSource(
             context = context,
-            onDriving = { onInput(VehicleInput.Driving(it)) },
-            onStatus = { onInput(VehicleInput.Status(VehicleInput.Source.CAR_UX, it)) },
+            onDriving = { onInput(VehicleInputMapper.driving(it)) },
+            onStatus = { onInput(VehicleInputMapper.status(VehicleInput.Source.CAR_UX, it)) },
         ).also { it.start() }
         pleos = PleosVehicleSource(
             context = context,
-            onEvent = { event, allowWhileDriving -> onInput(VehicleInput.Event(event, allowWhileDriving)) },
-            onStatus = { onInput(VehicleInput.Status(VehicleInput.Source.PLEOS_VEHICLE, it)) },
-            onCatalog = { onInput(VehicleInput.Catalog(it)) },
+            onEvent = { event, allowWhileDriving -> onInput(VehicleInputMapper.event(event, allowWhileDriving)) },
+            onStatus = { onInput(VehicleInputMapper.status(VehicleInput.Source.PLEOS_VEHICLE, it)) },
+            onCatalog = { onInput(VehicleInputMapper.catalog(it)) },
         ).also { it.start() }
     }
 

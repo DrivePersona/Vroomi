@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import com.example.voicecompanion.app.CompanionApp
 import com.example.voicecompanion.ui.theme.CompanionTheme
-import com.example.voicecompanion.ui.viewmodel.CompanionViewModel
+import com.example.voicecompanion.presentation.viewmodel.CompanionViewModel
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: CompanionViewModel
