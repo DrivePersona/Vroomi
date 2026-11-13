@@ -1,7 +1,7 @@
-package com.example.voicecompanion.app
+package com.example.voicecompanion.presentation
 
-import com.example.voicecompanion.app.model.CompanionUiState
-import com.example.voicecompanion.data.audio.VoicePreset
+import com.example.voicecompanion.domain.model.VoicePreset
+import com.example.voicecompanion.presentation.model.CompanionUiState
 import com.example.voicecompanion.domain.model.VehicleEvent
 
 /** ViewModel이 앱 동작에 접근하는 계약. 화면·테스트는 구체 Runtime 구현에 묶이지 않는다. */

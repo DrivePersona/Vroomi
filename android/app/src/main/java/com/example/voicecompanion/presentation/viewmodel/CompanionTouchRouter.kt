@@ -1,8 +1,8 @@
-package com.example.voicecompanion.ui.viewmodel
+package com.example.voicecompanion.presentation.viewmodel
 
-import com.example.voicecompanion.app.CompanionUiRuntime
-import com.example.voicecompanion.ui.event.CompanionTouch
-import com.example.voicecompanion.ui.event.CompanionUiEffect
+import com.example.voicecompanion.presentation.CompanionUiRuntime
+import com.example.voicecompanion.presentation.event.CompanionTouch
+import com.example.voicecompanion.presentation.event.CompanionUiEffect
 
 /** 터치 이벤트를 앱 동작으로 한곳에서 변환한다. 단위 테스트는 Android ViewModel 없이 이 규칙을 검증한다. */
 internal fun routeTouch(runtime: CompanionUiRuntime, touch: CompanionTouch): CompanionUiEffect? = when (touch) {
