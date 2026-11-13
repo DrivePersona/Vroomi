@@ -54,7 +54,7 @@ function parseCsv(source) {
   return data.map((cells) => Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ''])));
 }
 
-const matrixPath = path.resolve(__dirname, '../docs/DIALOGUE_MATRIX_V1.csv');
+const matrixPath = path.resolve(__dirname, '../docs/content/DIALOGUE_MATRIX.csv');
 const matrix = parseCsv(fs.readFileSync(matrixPath, 'utf8'));
 
 test('each candidate has all 13 canonical, non-empty draft dialogue slots', () => {

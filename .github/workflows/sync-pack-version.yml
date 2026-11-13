@@ -93,11 +93,11 @@ jobs:
             '',
           ].join('\n');
           fs.mkdirSync('docs', { recursive: true });
-          fs.appendFileSync('docs/PACK_RELEASES.md', note);
+          fs.appendFileSync('docs/content/PACK_RELEASES.md', note);
           NODE
           git config user.name "drivepersona-release-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add android/gradle.properties docs/PACK_RELEASES.md
+          git add android/gradle.properties docs/content/PACK_RELEASES.md
           git commit -m "chore(packs): update compatibility versions"
 
       - name: Resolve private release dependencies
@@ -163,7 +163,7 @@ jobs:
             '',
             `Content metadata: \`${metadata}\``,
             '',
-            'This workflow does not merge the PR. See `docs/PACK_RELEASES.md` for the release changelog.',
+            'This workflow does not merge the PR. See `docs/content/PACK_RELEASES.md` for the release changelog.',
             '',
           ].join('\n'));
           NODE
