@@ -9,7 +9,7 @@ update: snapshot
 대상: `Pleos_Connect_v2_1_0` (사용자 10, `internalDebug`), 선택 캐릭터 `ai.meshy.fox`(문서 이름 "여우 신령", 화면에는 무녀 복장)  
 방법: Virtual Console로 신호를 하나씩 넣고(이벤트별 쿨다운을 넘기려 14초 간격), 앱 logcat의 `말하기 요청 "대사"`와 `반응 음성 … 재생됨/대체 재생`을 기록했다. 절차는 [PLEOS_VIRTUAL_CONSOLE_E2E](../guides/PLEOS_VIRTUAL_CONSOLE_E2E.md), 신호 전수 결과는 [VIRTUAL_CONSOLE_SIGNAL_SWEEP](VIRTUAL_CONSOLE_SIGNAL_SWEEP.md)를 본다.
 
-**에뮬레이터 확인이며 실차 확인이 아니다.** "재생됨"은 앱이 오디오 재생을 시작하고 끝냈다는 로그이고, 스피커에서 소리가 나는지 귀로 확인한 것이 아니다. 대사 열의 문서 값은 [DIALOGUE_MATRIX](../content/DIALOGUE_MATRIX.csv)(전부 DRAFT)이다.
+**에뮬레이터 확인이며 실차 확인이 아니다.** "재생됨"은 앱이 오디오 재생을 시작하고 끝냈다는 로그이고, 스피커에서 소리가 나는지 귀로 확인한 것이 아니다. 대사 열의 문서 값은 점검 당시의 [DIALOGUE_MATRIX](../content/DIALOGUE_MATRIX.csv)(전부 DRAFT)이다. 그 뒤 여우 말투를 고풍스러운 반말로 정해 매트릭스의 여우 행을 실제 클립 문구에 맞췄다([FOX_SPIRIT_VOICE_SLOT_REQUEST](../content/FOX_SPIRIT_VOICE_SLOT_REQUEST.md)).
 
 ## 출력 방식 세 가지
 - **캐릭터 클립**: 보이스 팩의 캐릭터 목소리 클립을 재생한다. 이번 점검에서 여우는 BRAKE·TURN만 클립이 있었다.
@@ -19,7 +19,7 @@ update: snapshot
 ## 신호별 발화
 | 콘솔 신호 | 앱 이벤트 | 문서 대사(DRAFT) | 실제 발화 | 출력 | 재생 로그 |
 | --- | --- | --- | --- | --- | --- |
-| 앱 시작(인사) | GREETING | 반가워요. 여우 신령이 함께해요. | 대사 문구는 로그에 없음(`__GREETING[0]`) | 캐릭터 클립 | 재생됨 |
+| 앱 시작(인사) | GREETING | 반가워요. 여우 신령이 함께해요. | 여우 신령, 곁에 있느니라.(로그에는 `__GREETING[0]`만 남아 팩 매니페스트로 확인) | 캐릭터 클립 | 재생됨 |
 | 브레이크 70% | BRAKE | 제동 신호를 살폈어요. | 오냐, 천천히 가거라. | 캐릭터 클립 | 재생됨 |
 | 방향지시등 좌 | TURN | 방향지시등이 켜졌어요. | 깜빡이 켰구나. 좋도다. | 캐릭터 클립 | 재생됨 |
 | 오버레이 탭 | TOUCH | (없음) | 없음 — `TOUCH 클립이 없어요` | 무음 | 재생 없음 |
@@ -44,6 +44,6 @@ update: snapshot
 - **문서 대사와 실제 발화가 다르다.** BRAKE·TURN은 보이스 팩의 클립 문구(여우 말투)가 나와 DRAFT 문서의 존댓말 문구와 다르다. 문서가 아직 DRAFT이고 승인된 문구가 아니기 때문이다.
 - **여우는 HVAC·DOOR·WINDOW·AMBIENT_LIGHT 클립이 없어** 캐릭터 목소리가 아닌 기본 음성으로 읽는다. 그 문구는 문서 대사가 아니라 앱 코드의 기본 문구다. 와이퍼(`COMFORT`)도 문서의 WIPER 대사가 아니라 HVAC 슬롯을 쓴다.
 - **TOUCH는 클립이 없어 아무 소리도 나지 않는다.**
-- 확인하지 못했다: GREETING의 실제 문구(로그에 없다), MODE·TIRE·WARNING·CHARGE·ENERGY_LOW(신호를 앱에 넣을 수 없거나 자동 반응이 없다. [VIRTUAL_CONSOLE_SIGNAL_SWEEP](VIRTUAL_CONSOLE_SIGNAL_SWEEP.md) 참고), 충전 포트 열림(데이터만 수신, 발화 없음), 주행거리 이정표(이번 점검에서는 반응이 나지 않았다. 원인 미확정).
+- 확인하지 못했다: MODE·TIRE 클립 재생(팩에는 있다), WARNING·CHARGE·ENERGY_LOW(신호를 앱에 넣을 수 없거나 자동 반응이 없다. [VIRTUAL_CONSOLE_SIGNAL_SWEEP](VIRTUAL_CONSOLE_SIGNAL_SWEEP.md) 참고), 충전 포트 열림(데이터만 수신, 발화 없음), 주행거리 이정표(이번 점검에서는 반응이 나지 않았다. 원인 미확정).
 - 주행 중 차단 규칙(편의 계열은 말하지 않음)은 이번 점검 범위가 아니다(주차 상태에서 점검).
 - 빠진 슬롯의 대사 확정·음성 생성 요청: [FOX_SPIRIT_VOICE_SLOT_REQUEST](../content/FOX_SPIRIT_VOICE_SLOT_REQUEST.md).
