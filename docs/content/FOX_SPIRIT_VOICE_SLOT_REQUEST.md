@@ -5,7 +5,7 @@ update: rewrite
 
 # 음성 팩 SDK 요청: 여우 신령 빠진 대사 슬롯 8개
 
-**기준일:** 2026-11-14 · **대상:** `voice-pack-sdk`(비공개) `ai.fox-spirit.voicedesign`(앱이 쓰는 `voicepack-content` 0.6.0 안의 팩 0.3.0) · **짝 캐릭터:** `ai.meshy.fox`(여우 신령, 화면에는 무녀 복장) · **요청한 쪽:** 앱(이 저장소) · **상태:** 요청. 말투는 고풍스러운 반말로 정했다. 생성할 문구 목록은 [FOX_SPIRIT_VOICE_SLOTS.csv](FOX_SPIRIT_VOICE_SLOTS.csv)다.
+**기준일:** 2026-11-14 · **대상:** `voice-pack-sdk`(비공개) `ai.fox-spirit.voicedesign`(앱이 쓰는 `voicepack-content` 0.6.0 안의 팩 0.3.0) · **짝 캐릭터:** `ai.meshy.fox`(여우 신령, 화면에는 무녀 복장) · **요청한 쪽:** 앱(이 저장소) · **상태:** 여우 목소리 18개는 앱 쪽에서 생성해 에뮬레이터에서 재생까지 확인했다(§8). `voice-pack-sdk` 반영과 중립 2개는 남았다. 말투는 고풍스러운 반말로 정했다. 문구 목록은 [FOX_SPIRIT_VOICE_SLOTS.csv](FOX_SPIRIT_VOICE_SLOTS.csv)다.
 
 ## 1. 요약
 
@@ -91,3 +91,23 @@ update: rewrite
 - **WIPER:** 앱은 와이퍼 상태를 데이터로만 받고 반응 이벤트가 없다(`voicePackClipEventIds`에 슬롯만 있음). 지금 와이퍼 Auto가 말하는 것은 다른 구독 경로가 `COMFORT`(HVAC 슬롯)로 보내기 때문이다. 클립이 생기면 앱이 WIPER로 보낼지 정해야 한다.
 - **CHARGE:** 충전구 열림은 이번 점검에서 데이터만 오고 이벤트가 없었다. 클립이 생겨도 앱 쪽 이벤트를 먼저 확인해야 한다.
 - **중립 기본 문구:** 앱 기본 문구(`VehicleEvent.WARNING`, `ENERGY_URGENT`)를 §3.2의 공통 문장에 맞출지 정한다. 웹 시뮬레이터(`engine.js`)와 테스트도 같은 문구를 쓴다.
+
+## 8. 앱 쪽 생성 결과 (2026-11-14)
+
+`voice-pack-sdk`에 접근할 수 없어, 여우 목소리 18개를 앱 쪽에서 먼저 만들어 시험했다. 생성한 WAV는 공개 저장소에 넣지 않는다(이 저장소는 계약·절차·증적만 둔다).
+
+| 항목 | 내용 |
+| --- | --- |
+| 모델 | `Qwen/Qwen3-TTS-12Hz-1.7B-Base`(Apache-2.0), 패키지 `qwen-tts` 0.1.1, Apple M4(MPS) |
+| 참조 음성 | 기존 여우 클립 4개(인사·BRAKE·TURN·TIRE 첫 변형)를 0.3초 쉼으로 이어 붙인 약 10초와 그 문구 |
+| 후처리 | 기존 클립에 맞춤: 24kHz·모노·PCM16, 앞 무음 0.08초·끝 무음 0.34초, 최대 진폭 0.71, 끝 10ms 페이드 |
+| 결과 | 18개, 길이 1.66~2.17초. 목록의 `status = GENERATED_LOCAL` 행 |
+| 청취 | 사용자가 청취 페이지로 듣고 "괜찮다"고 했다(2026-11-14). 공개 매트릭스 상태는 `AUDIO_GENERATED`로 올렸다 |
+| 앱 확인 | 팩 버전 `0.3.1-local`로 묶어 `internalDebug`의 내부 자산(git 무시 경로)에 넣고 AVD에서 재측정했다. 공조·도어·창문·조명 신호가 `대체 재생` 없이 여우 클립으로 `재생됨`([FOX_UTTERANCE_CHECK](../evidence/FOX_UTTERANCE_CHECK.md)) |
+
+남은 것:
+- **`voice-pack-sdk` 반영:** 18개 WAV와 매니페스트 추가분(문구·크기·sha256)을 비공개 팩에 넣고 `voicepack-content`를 새로 게시해야 앱 기본 빌드에 들어간다. 지금 앱 기본 빌드(0.6.0)에는 없다.
+- **중립 2개(WARNING·ENERGY_LOW):** 어느 팩에도 중립 참조 음성이 없어 만들지 않았다. 모든 캐릭터가 함께 쓰는 음성이라 따로 정한다.
+- **`gestureId`:** 새 슬롯 클립에는 비워 뒀다. 캐릭터 매니페스트의 지원 몸짓을 확인한 뒤 채운다.
+- **권리 메타데이터:** 바꾸지 않았다. 시제품 메모만 매니페스트 `prototype.localAdditions`에 남겼다.
+
