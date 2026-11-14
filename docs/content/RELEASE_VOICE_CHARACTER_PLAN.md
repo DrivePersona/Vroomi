@@ -30,6 +30,8 @@ The internal importer handles **23 new** pairs; it does not mean the product tar
 | VoiceDesign expansion | 23 | 253 (11 per pack) | 299 | Local audition output; greeting plus 10 event clips, not a release pack |
 | **Total** | **33** | **303** | **429** | **126 event slots still need WAVs** |
 
+**Update 2026-11-14 (voice pack 0.8.0):** three baseline packs now have all 13 slots: `ai.fox-spirit.voicedesign`, `ai.chuunibyo-demon-lord.voicedesign` and `ai.cooldere-vehicle-os.voicedesign`. Each has 33 clips: the existing 13, plus three variants for each of DOOR, WINDOW, AMBIENT_LIGHT, HVAC, WIPER and CHARGE, plus one clip each for WARNING and ENERGY_LOW. They shipped through `voice-pack-sdk` 0.7.0 (fox) and 0.8.0 (the other two), and the app uses 0.8.0. The baseline gap is now 7 packs × 8 slots = 56, so **102 event slots still need WAVs** (56 baseline + 46 expansion safety slots). The process and audition record for the fox pack are in [FOX_SPIRIT_VOICE_SLOT_REQUEST](FOX_SPIRIT_VOICE_SLOT_REQUEST.md); the other two followed the same process. In [DIALOGUE_MATRIX.csv](DIALOGUE_MATRIX.csv), the six new character slots for these three characters are marked `PACK_READY`. The private `voice-pack-sdk` matrix stays canonical.
+
 The 23 local audition pairs have `WARNING` and `ENERGY_LOW` pending. The baseline packs are missing the other eight canonical event clips. Generated audition files are not the same as reviewed, hashed, packaged, and release-approved WAVs.
 
 ## Why release currently shows zero
