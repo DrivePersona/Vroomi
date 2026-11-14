@@ -337,29 +337,8 @@ private fun DialogueSheet(state: OverlayUiState, onPreview: (String, Int) -> Uni
 private fun SettingsSheet(state: OverlayUiState, ui: OverlayControlsUi, port: OverlayPort, actions: OverlayControlsActions) {
     Note("짧은 설정만 여기서 바꿀 수 있어요.")
     SwitchRow("세션 시작 인사", "정차 중 캐릭터가 처음 나타날 때 한 번 인사해요.", state.greetingEnabled) { port.setGreetingEnabled(it) }
-    SwitchRow("정차 중 캐릭터 표시", "끄면 캐릭터가 사라져요.", state.parkedAvatarVisible) { on ->
-        if (on) actions.setParkedAvatarVisible(true) else ui.confirmHide = true
-    }
-    if (ui.confirmHide) {
-        Surface(
-            shape = RoundedCornerShape(CompanionTokens.RowRadius),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // 되돌리는 길은 지금 앱 화면의 'VR 캐릭터 켜기'뿐이다. 상태·복구 화면(#36)이 생기면 문구를 바꾼다.
-                Text("끄면 캐릭터가 사라져요. 다시 보려면 앱 아이콘으로 앱 화면을 열어 'VR 캐릭터 켜기'를 켜 주세요.", style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { ui.confirmHide = false; actions.setParkedAvatarVisible(false) }, modifier = Modifier.heightIn(min = CompanionTokens.MinimumTouchHeight)) {
-                        Text("그래도 끄기", style = MaterialTheme.typography.labelLarge)
-                    }
-                    TextButton(onClick = { ui.confirmHide = false }, modifier = Modifier.heightIn(min = CompanionTokens.MinimumTouchHeight)) {
-                        Text("취소", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-            }
-        }
-    }
+    // '정차 중 캐릭터 표시' 끄기는 제공하지 않는다. 끄면 캐릭터가 사라져 설정을 다시 열 수 없고,
+    // 되돌릴 앱 화면도 없기 때문이다(Activity 제거). 캐릭터는 정차 중 항상 표시한다.
     Row(
         Modifier.fillMaxWidth().heightIn(min = CompanionTokens.MinimumTouchHeight),
         horizontalArrangement = Arrangement.SpaceBetween,

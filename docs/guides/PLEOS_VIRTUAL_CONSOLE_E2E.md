@@ -75,22 +75,18 @@ Start-Process 'http://127.0.0.1:8088/'
 
 브라우저의 Console 화면과 AVD 화면을 나란히 놓는다. Virtual Console의 값 변화와 앱의 반응 기록을 같은 시점에 비교할 수 있어야 한다.
 
-## 2. 앱을 전면에 열고 기준 상태를 만든다
+## 2. 앱을 시작하고 기준 상태를 만든다
 
-설치된 패키지를 확인한다.
+> 2026-11-14 기준 이 앱에는 Activity(이전 보이스 컴패니언 화면)가 없고 런처 아이콘도 없다. `am start`로 열 화면이 없으며, 아래의 "앱 기록 카드"는 더 이상 존재하지 않는다. 앱 반응은 오버레이의 캐릭터 표시와 `adb logcat` 로그(`VoiceCompanion`, `doSpeak`·TTS 콜백)로 확인한다. 이 문서의 나머지 "앱 기록" 판정 문구는 이 기준으로 읽는다(재작성 대기).
+
+설치된 패키지를 확인한다. 오버레이를 보려면 내부 미리보기 캐릭터가 있는 `internalDebug` 빌드(`com.example.voicecompanion`)가 필요하다.
 
 ```powershell
 & $adb -s emulator-5554 shell pm list packages voicecompanion
+& $adb -s emulator-5554 shell appops set --user 10 com.example.voicecompanion SYSTEM_ALERT_WINDOW allow
 ```
 
-예를 들어 review APK를 설치했다면 다음과 같이 앱을 전면으로 연다.
-
-```powershell
-& $adb -s emulator-5554 shell am start --user 10 `
-  -n com.example.voicecompanion.review/.ui.MainActivity
-```
-
-기본 debug APK라면 패키지만 `com.example.voicecompanion`으로 바꾼다. 앱의 상태 표시에서 차량 구독 요청이 완료된 뒤, Virtual Console에서 다음 기준 상태를 만든다.
+앱은 Android 부팅 완료(`BOOT_COMPLETED`) 때 서비스로 시작된다. 에뮬레이터를 종료했다가 다시 띄우면 시작되고, `adb logcat -s VoiceCompanionService`에서 `runtime started`를 확인한다. 설치 직후나 강제 종료 뒤처럼 패키지가 stopped 상태이면 부팅 리시버가 호출되지 않는다. `adb reboot`(게스트 재부팅)은 이 에뮬레이터 버전에서 호스트 GPU 렌더러가 죽으므로 쓰지 않는다. 앱의 차량 구독이 시작된 뒤, Virtual Console에서 다음 기준 상태를 만든다.
 
 - Gear: `P`
 - Brake Pedal: `0%`
@@ -173,7 +169,7 @@ Invoke-WebRequest -Method Put 'http://127.0.0.1:8088/vehicle/controls?brake=0' |
 | `http://127.0.0.1:8088`에 접속하지 못함 | `adb forward tcp:8088 tcp:8088`을 다시 실행하고 AVD가 완전히 부팅됐는지 확인한다. |
 | 카드 값은 바뀌지만 앱 기록이 없음 | 앱을 완전히 전면에 열고 2~3초 기다려 구독을 완료한다. 브레이크는 `0 → 70`, 방향지시등은 `Off → Left/Right`의 **에지 변화**로 다시 만든다. 쿨다운도 지난 뒤 재시도한다. |
 | `SecurityException` 또는 구독 실패 | 앱 매니페스트의 읽기 권한(`CAR_DRIVE`, `CAR_LIGHTS`, `CAR_SAFETY`)과 설치된 APK의 패키지/사용자가 맞는지 확인한다. 폰 AVD에서는 차량 권한 실패가 정상이며 Pleos Connect AVD에서만 이 E2E를 한다. |
-| 앱이 보이지 않음 | Gear가 `D`인지 먼저 확인하고 `P`로 돌린다. 방향지시등은 `Off`로 바꿔 EVS 전면 화면을 닫는다. 그 다음 `am start --user <사용자> -n <패키지>/.ui.MainActivity`로 다시 연다. |
+| 앱이 보이지 않음 | Gear가 `D`인지 먼저 확인하고 `P`로 돌린다. 방향지시등은 `Off`로 바꿔 EVS 전면 화면을 닫는다. 그 다음 `adb logcat -s VoiceCompanion VoiceCompanionService`로 서비스가 시작됐고 `overlay sync` 입력(정차·권한·캐릭터 준비)이 모두 true인지 본다. 서비스가 없으면 에뮬레이터를 종료했다가 다시 띄운다. |
 | 소리가 안 들림 | 앱 기록의 `재생됨` 여부를 먼저 분리해 본다. `재생됨`이 있으면 앱 요청/서비스 시작은 성공한 것이며, 에뮬레이터 호스트 오디오 출력·볼륨을 점검한다. `재생됨`도 없으면 앱의 음성 초기화/오디오 포커스를 로그로 확인한다. |
 | 안전벨트·드라이브 모드가 반응하지 않음 | 현재 v2.1.0 VHAL에서는 앱이 해당 공개 콜백을 받지 못하는 것으로 확인됐다. 브레이크·방향지시등과 별개로 기록하고, 지원 차량 또는 다음 에뮬레이터 이미지에서 재검증한다. |
 

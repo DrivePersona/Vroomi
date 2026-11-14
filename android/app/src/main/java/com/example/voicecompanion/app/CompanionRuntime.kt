@@ -176,7 +176,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         private set
     var vrOverlayPermissionRequired by mutableStateOf(false)
         private set
-    private var settingsVisible = true
+    private var settingsVisible = false
 
     // 캐릭터 곁 오버레이(탭·floating 메뉴·시트)가 보는 상태와 하는 일. 가챠 보유는 획득 정책(#39)이 정해지기 전까지 어디서도 늘리지 않는다.
     private var ownedCharacterIds by mutableStateOf<Set<String>>(emptySet())
@@ -233,7 +233,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         started = true
         // Remove the legacy independent voice choice. The active voice is now derived from the selected character manifest.
         prefs.edit().remove("voicepack.selected").apply()
-        vrEnabled = prefs.getBoolean(PREF_VR_ENABLED, false)
+        // overlay-first: 정차 중 캐릭터 표시는 항상 켠다. 끄는 UI가 없고(켜 둘 화면도 없다), 이전에 저장된 끔 값은 무시한다.
+        vrEnabled = true
         ownedCharacterIds = prefs.getStringSet(PREF_OWNED_CHARACTERS, emptySet()).orEmpty().toSet()
         greetingEnabled = prefs.getBoolean(PREF_GREETING, true)
         VehicleEvent.entries.forEach { e ->
@@ -368,6 +369,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (value) {
             cancelGesture()
             if (previewSeq == speakSeq) stop()
+        } else {
+            ensureDefaultCharacter()
         }
         syncCharacterOverlay()
     }
@@ -452,6 +455,24 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (!packsLoaded || !characterPacksLoaded) return
         characterPackNotice = characters.restore(prefs.getString(PREF_CHARACTER_PACK, null))
         refreshCharacterPacks()
+        ensureDefaultCharacter()
+    }
+
+    /**
+     * 설정 Activity가 없는 overlay-first 흐름에서는 처음 설치한 사용자가 고를 화면이 없다.
+     * 저장된 선택이 없으면 로스터 순서상 첫 READY 캐릭터를 정차 중에 한 번 고른다. 후보가 없으면(출시 로스터 0개) 아무것도 띄우지 않는다.
+     */
+    private fun ensureDefaultCharacter() {
+        if (driving || !packsLoaded || !characterPacksLoaded) return
+        if (activeCharacterPack != null || prefs.getString(PREF_CHARACTER_PACK, null) != null) return
+        characterPackList.firstOrNull { it.state is CharacterPackState.Ready }?.let { selectCharacterPack(it.id) }
+    }
+
+    /** Boot/service 진입점: 설정을 전면에 두지 않고 시작하며, CarUx가 정차를 알려 줄 때까지 닫힌 쪽(주행)으로 둔다. */
+    fun startBackgroundSession() = onMain {
+        settingsVisible = false
+        start()
+        syncCharacterOverlay()
     }
 
     /** 정차 중에만 READY 캐릭터를 고르고 저장한다. 선택한 표현은 다음 오버레이 표시부터 적용된다. */
@@ -513,6 +534,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         }
     }
 
+    private var lastLoggedOverlayInput: VrOverlayInput? = null
+
     private fun syncCharacterOverlay() {
         val pack = activeCharacterPack
         val permissionGranted = characterOverlay.permissionGranted
@@ -524,6 +547,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             readyCharacter = pack?.isRenderable == true,
             overlayPermissionGranted = permissionGranted,
         )
+        // Activity가 없는 흐름에서는 왜 안 보이는지 알 길이 로그뿐이다. 입력이 바뀔 때만 한 줄 남긴다.
+        if (input != lastLoggedOverlayInput) {
+            lastLoggedOverlayInput = input
+            Log.i(TAG, "overlay sync: $input character=${pack?.id}")
+        }
         if (VrOverlayPolicy.shouldShow(input)) {
             when (characterOverlay.show(pack!!, characterAnimation)) {
                 OverlayShowResult.SHOWING -> {
