@@ -22,7 +22,7 @@ update: snapshot
 | --- | --- |
 | 브레이크 | BRAKE |
 | 방향지시등 | TURN |
-| 크루즈 `full_autonomous` (주차), 목표속도 | CRUISE_ON, CRUISE_TARGET_SET |
+| 크루즈 `full_autonomous`(주차·주행 모두), 크루즈 해제, 목표속도 | CRUISE_ON, CRUISE_OFF, CRUISE_TARGET_SET |
 | 주행 가능 거리 49km, 19km | RANGE_LOW, RANGE_CRITICAL |
 | 조향 400° | STEER_BIG (45°는 기준 미만이라 무반응이 정상) |
 | 공조 전원·AC·auto·dual*·재순환·풍량·성에 제거·온도·시트 열선·공기청정, 시트 착석, 와이퍼 Auto | COMFORT |
@@ -38,17 +38,24 @@ update: snapshot
 | 신호 | 관찰 | 해석 |
 | --- | --- | --- |
 | 공조 dual | 재측정 1회전 데이터만, 2회전 COMFORT | 원인 미확정 |
-| 크루즈 `ready` | 1회전 데이터만, 2회전 CRUISE_OFF | 기준값 순서에 따라 값이 바뀌지 않아 이벤트가 안 나는 것으로 보이나 미확정 |
 | 주행거리 2,300km | 1회전 ODO_MILESTONE, 2회전 없음 | 이미 넘은 이정표는 다시 발화하지 않는 것으로 보임 |
-| 크루즈 `full_autonomous` (주행 중) | 신호는 받았으나 이벤트 없음 | 주차에서는 CRUISE_ON. 원인 미확정 |
+
+### 크루즈는 불안정이 아니라 직전 상태에 따른 규칙이다 (2026-11-14 추가 확인)
+처음에 불안정으로 적은 크루즈 두 건은 `SignalReactionRules.cruise`가 **직전 값과 새 값의 조합**으로 판정하기 때문에 생긴 차이였다.
+- `ACTIVATED`(콘솔 `full_autonomous`)로 바뀔 때, 직전이 `ACTIVATED`·`USER_OVERRIDE`·`SUSPENDED` 같은 "걸린 상태"가 아니면 CRUISE_ON.
+- 걸린 상태에서 `ENABLED`(콘솔 `ready`)·`OTHER`로 풀리면 CRUISE_OFF. 걸린 상태가 아닌데 `ready`가 오면 이벤트가 없다(1회전의 "데이터만").
+- 콘솔 `not_ready`는 앱에 값이 전달되지 않는 것으로 보여, 점검 스크립트가 기준값을 `not_ready`로 두면 앱이 기억한 직전 값이 `ACTIVATED`로 남는다. 이 상태에서 `full_autonomous`를 넣으면 같은 값이라 이벤트가 없다. 주행 중 점검에서 "이벤트 없음"이 나온 이유로 보인다.
+- 기준값을 `ready`로 맞추고 다시 한 결과: 주행(D) 중 `ready → full_autonomous`는 CRUISE_ON, `full_autonomous → ready`는 CRUISE_OFF(둘 다 `주행=true, 주행 중 허용=true`). 규칙은 단위 테스트(`SignalReactionRulesTest`)에도 이미 있다.
 
 ## 결과 3: 신호는 받지만 반응 규칙이 없음
 EV 배터리 SOC(50·15·5%), 충전 포트, 스티어링 열선, 기어 N(중립)
 
+기어 N(중립)은 **의도된 무반응**이다. `SignalReactionRules.gear`가 D·P·R만 말하고 "중립·모름·수동 단수는 말하지 않는다"고 정했고, [VEHICLE_SIGNALS](../platform/VEHICLE_SIGNALS.md)와 단위 테스트(`gearSpeaksDriveParkAndReverseAndNothingElse`)에도 같은 내용이 있다. 이번 점검은 그 동작을 AVD에서 다시 확인한 것이다.
+
 ## 결과 4: 앱에 신호가 오지 않음
 - etcs 활성·시나리오, 전원 상태, 계기판 경고등(telltales): 콘솔 상태는 바뀌는 것을 확인했다. 앱이 구독하지 않는 것으로 보인다.
 - 유독가스 알림, 비상등, 정지등, 도어등, 에스코트등: 앱 수신 없음. 콘솔 상태 변경은 확인하지 못했다.
-- **타이어 공기압: 수신 없음. 앱에 TIRE 이벤트 매핑이 없다(공백).**
+- **타이어 공기압: 수신 없음. 플랫폼 제약이다.** 타이어 압력 구독은 서드파티 불가(`PRIVATE_CAR_SAFETY`)이고, 공개된 `getLowTirePressure`는 값의 뜻을 문서에서 확인하지 못해 자동 반응에 쓰지 않는다([PLEOS_PLATFORM_FINDINGS](../platform/PLEOS_PLATFORM_FINDINGS.md)). 미승인 권한은 심사 탈락 사유라 TIRE 이벤트는 수동 반응(터치·시뮬레이터)에만 남긴다.
 - EV 배터리 레벨·용량·충전 설정, 주행 시간, 크루즈 longitudinal·lateral
 - 시트 위치·이동 15개, 공조 풍향, 앰비언트 스위치·밝기, 외부등 Auto, 와이퍼 Low·High, 글러브박스
 
@@ -59,9 +66,10 @@ EV 배터리 SOC(50·15·5%), 충전 포트, 스티어링 열선, 기어 N(중�
 | --- | --- |
 | 브레이크·방향지시등·크루즈 목표속도·주행 가능 거리·조향 400°·외부등 | 반응 + 음성(주행 중 허용) |
 | 공조 온도·도어 잠금·창문·실내등 | 주행 중 차단(로그 `주행 중 허용=false`). 설계대로 |
+| 크루즈 `ready → full_autonomous`, `full_autonomous → ready` | CRUISE_ON, CRUISE_OFF (주행 중 허용) |
 | 공조 전원 | 데이터만 |
 
-기어 이벤트와 주행 상태: D·R에서 주행=true, P에서 false. N은 이벤트가 없다.
+기어 이벤트와 주행 상태: D·R에서 주행=true, P에서 false. N은 이벤트가 없다(의도).
 
 ## 한계
 - 에뮬레이터는 3D를 그리지 않고 2D 프리뷰만 보인다([PLEOS_PLATFORM_FINDINGS](../platform/PLEOS_PLATFORM_FINDINGS.md)). 캐릭터가 어떻게 움직였는지는 화면이 아니라 로그로만 봤다.
@@ -71,7 +79,6 @@ EV 배터리 SOC(50·15·5%), 충전 포트, 스티어링 열선, 기어 N(중�
 - 점검 스크립트의 첫 실행에서 일부 값이 잘못 들어가(방향지시등 파라미터·크루즈 값·타이어 영역) 400이 났고, 같은 결과를 재측정으로 바로잡았다. 표의 판정은 바로잡은 값 기준이다.
 
 ## 후속
-- 기어 N 반응 여부 결정(의도인지 확인)
-- 주행 중 크루즈 `full_autonomous` 이벤트 원인 확인
-- TIRE 이벤트 매핑 추가
-- 반응 중 캐릭터 몸짓은 3D가 보이는 기기에서 확인
+- 처음에 후속으로 적은 세 건은 확인 결과 코드 결함이 아니었다. 기어 N은 의도된 무반응, 주행 중 크루즈는 직전 상태에 따른 규칙, TIRE는 플랫폼 제약이다. 그래서 코드는 바꾸지 않았다.
+- 공조 dual이 두 번째 재측정에서만 반응한 원인은 아직 확정하지 못했다.
+- 반응 중 캐릭터 몸짓은 3D가 보이는 기기에서 확인한다.
