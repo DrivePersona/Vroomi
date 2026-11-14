@@ -13,4 +13,5 @@ update: rewrite
 | [INTERNAL_VOICEDESIGN_AVD_VALIDATION](INTERNAL_VOICEDESIGN_AVD_VALIDATION.md) | 내부 VoiceDesign 후보의 AVD 검증 |
 | [INTERNAL_VOICEDESIGN_PREVIEW](INTERNAL_VOICEDESIGN_PREVIEW.md) | 내부 후보 미리보기 |
 | [STABILITY_REGRESSION_COVERAGE](STABILITY_REGRESSION_COVERAGE.md) | 안정성 점검 범위 |
+| [user-flow-screens](user-flow-screens/) | 사용자 흐름 실제 화면 캡처 12장(2026-11-14, AVD `internalDebug`). [USER_FLOWS](../product/USER_FLOWS.md)가 쓴다 |
 | 캡처 | 이 폴더의 `*.png`와 `images/` |

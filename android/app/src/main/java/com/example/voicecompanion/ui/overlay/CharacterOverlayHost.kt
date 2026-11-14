@@ -25,6 +25,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -49,6 +50,7 @@ internal class CharacterOverlayHost(
     private val density = context.resources.displayMetrics.density
     private val params = layoutParams(sizeFor(CharacterOverlaySpec.DEFAULT))
     private var root: FrameLayout? = null
+    private var pressedShown = false
     private var characterView: View? = null
     private var previewView: ImageView? = null
     private var previewPackId: String? = null
@@ -73,7 +75,19 @@ internal class CharacterOverlayHost(
     private val controlsWindow = ComposeOverlayWindow(context, windowManager)
     private val hintWindow = ComposeOverlayWindow(context, windowManager)
     private var fade: ValueAnimator? = null
-    private val longPress = Runnable { if (gesture.longPress()) openMenu() }
+    private val longPress = Runnable {
+        if (gesture.longPress()) {
+            clearPressFeedback()
+            characterView?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            openMenu()
+        }
+    }
+    private val pressFeedback = Runnable {
+        if (PressFeedback.canShow(gesture.pressed, fading = fade != null, switching = characterSwitch.phase != CharacterSwitch.Phase.IDLE)) {
+            pressedShown = true
+            setWindowAlpha(PressFeedback.alphaFor(true))
+        }
+    }
     private val hideHint = Runnable { hintWindow.remove() }
 
     val permissionGranted: Boolean
@@ -115,7 +129,7 @@ internal class CharacterOverlayHost(
             } catch (_: WindowManager.BadTokenException) {
                 return OverlayShowResult.REJECTED
             }
-            showMenuHintOnce()
+            showMenuHintIfNeeded()
         }
         syncPreview(pack, requestedSize)
         present(pack, animation)
@@ -125,6 +139,9 @@ internal class CharacterOverlayHost(
     /**
      * 3D가 그려지기 전이나 못 그리는 기기에서 보이는 2D 프리뷰. 같은 창에서 캐릭터가 바뀌면(오버레이 안에서 교체) 이전 캐릭터의 프리뷰가
      * 남지 않게 바꾼다. 프리뷰는 캐릭터 뷰 아래(맨 앞 자식)에 둔다.
+     *
+     * 프리뷰는 창이 아니라 기준 틀(300×400dp)에 맞춰 그리고, 창은 그 틀에서 캐릭터가 보이는 부분만 잘라 보여 준다. 3D가 같은 기준 틀에서
+     * 잘라 그리는 것과 같은 방식이라 창 크기가 캐릭터마다 달라도 두 그림이 어긋나지 않는다. 기본 크기(틀과 같음)에서는 이전과 같다.
      */
     private fun syncPreview(pack: CharacterPack, size: OverlaySize) {
         val frame = root ?: return
@@ -133,13 +150,20 @@ internal class CharacterOverlayHost(
         previewView?.let(frame::removeView)
         previewView = pack.previewPng?.let { png ->
             BitmapFactory.decodeByteArray(png, 0, png.size)?.let { bitmap ->
-                val inset = minOf(size.width, size.height) / 20
+                val stageWidth = dp(STAGE_WIDTH_DP)
+                val stageHeight = dp(STAGE_HEIGHT_DP)
+                val inset = minOf(stageWidth, stageHeight) / 20
                 ImageView(context).apply {
                     setImageBitmap(bitmap)
                     scaleType = ImageView.ScaleType.FIT_CENTER
                     setPadding(inset, inset, inset, inset)
                     contentDescription = "${pack.name} 캐릭터 프리뷰"
-                }.also { frame.addView(it, 0, FrameLayout.LayoutParams(size.width, size.height)) }
+                }.also {
+                    val params = FrameLayout.LayoutParams(stageWidth, stageHeight)
+                    params.leftMargin = (size.width - stageWidth) / 2 - size.offsetX
+                    params.topMargin = (size.height - stageHeight) / 2 - size.offsetY
+                    frame.addView(it, 0, params)
+                }
             }
         }
     }
@@ -195,6 +219,8 @@ internal class CharacterOverlayHost(
             Log.d(TAG, "오버레이 숨김(주행·상태 미확인·표시 끔 등): 메뉴/시트=${controls.surface} 교체=${characterSwitch.phase} 즉시 끊음")
         }
         main.removeCallbacks(longPress)
+        main.removeCallbacks(pressFeedback)
+        pressedShown = false
         fade?.let {
             it.removeAllListeners()
             it.cancel()
@@ -247,31 +273,47 @@ internal class CharacterOverlayHost(
         return Rect(0, 0, size.x, size.y)
     }
 
+    /**
+     * 캐릭터·메뉴·시트가 있어도 되는 영역. [usableArea]에서 왼쪽 계기판(driving view)을 뺀다(계기판의 안전 벨트 경고 같은 차량 표시를 가리지 않게).
+     * 근거와 한계는 [OverlayArea.DRIVING_VIEW_WIDTH_FRACTION]에 있다.
+     */
+    private fun allowedArea(): Rect {
+        val u = usableArea()
+        val screenWidth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) windowManager.maximumWindowMetrics.bounds.width() else u.right
+        val a = OverlayArea.exceptDrivingView(PxRect(u.left, u.top, u.right, u.bottom), screenWidth, dp(MIN_AREA_WIDTH_DP))
+        return Rect(a.left, a.top, a.right, a.bottom)
+    }
+
     /** 터치 한 번을 [OverlayGesture]에 넘기고, 판정이 나면 탭은 TOUCH로, 길게 누름은 메뉴로, 끌기는 창 이동으로 옮긴다. */
     @SuppressLint("ClickableViewAccessibility") // 탭은 finish()가 performClick()으로 보낸다(접근성 클릭과 같은 길)
     private fun gestureListener(): View.OnTouchListener = View.OnTouchListener { _, e ->
         when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> usableArea().let { a ->
+            MotionEvent.ACTION_DOWN -> allowedArea().let { a ->
                 dismissHint()
+                clearPressFeedback()
                 Log.d(TAG, "오버레이 터치 시작: 손가락=(${e.rawX.toInt()}, ${e.rawY.toInt()}) 창=(${params.x}, ${params.y})")
                 val size = checkNotNull(overlaySize)
                 if (gesture.down(e.rawX, e.rawY, params.x, params.y, a.left, a.right - size.width, a.top, a.bottom - size.height)) {
                     main.postDelayed(longPress, OverlayGesture.LONG_PRESS_MS)
+                    main.postDelayed(pressFeedback, PressFeedback.DELAY_MS)
                 }
             }
             MotionEvent.ACTION_MOVE -> gesture.move(e.rawX, e.rawY)?.let { (x, y) ->
                 main.removeCallbacks(longPress)
+                clearPressFeedback()
                 params.x = x
                 params.y = y
-                if (attached) root?.let { windowManager.updateViewLayout(it, params) }
+                applyPosition()
             }
             MotionEvent.ACTION_UP -> {
                 main.removeCallbacks(longPress)
+                clearPressFeedback()
                 finish(gesture.up())
             }
             // 둘째 손가락은 첫 손가락의 좌표를 흔들어 놓으니 이 입력은 더 판정하지 않는다.
             MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> {
                 main.removeCallbacks(longPress)
+                clearPressFeedback()
                 finish(gesture.cancel())
             }
         }
@@ -304,7 +346,7 @@ internal class CharacterOverlayHost(
     }
 
     private fun placeFromPrefs(size: OverlaySize) {
-        val area = usableArea()
+        val area = allowedArea()
         params.x = prefs.getInt(PREF_X, (area.left + area.right - size.width) / 2)
             .coerceIn(area.left, maxOf(area.left, area.right - size.width))
         params.y = prefs.getInt(PREF_Y, (area.top + area.bottom - size.height) / 2)
@@ -315,7 +357,7 @@ internal class CharacterOverlayHost(
         prefs.edit().remove(PREF_X).remove(PREF_Y).apply()
         val size = overlaySize ?: return
         placeFromPrefs(size)
-        if (attached) root?.let { windowManager.updateViewLayout(it, params) }
+        applyPosition()
         relayoutControls()
     }
 
@@ -324,6 +366,7 @@ internal class CharacterOverlayHost(
     private fun openMenu() {
         if (!attached || characterSwitch.phase != CharacterSwitch.Phase.IDLE || !controls.openMenu()) return
         Log.d(TAG, "오버레이 제스처: 길게 누름 → 메뉴 (TOUCH 없음)")
+        prefs.edit().putBoolean(PREF_MENU_OPENED, true).apply() // 한 번 열어 봤으니 길게 누름 안내는 더 보이지 않는다
         dismissHint()
         showControls()
     }
@@ -386,11 +429,15 @@ internal class CharacterOverlayHost(
 
     // ---- 첫 인사 때 한 번 보이는 '길게 누르면 메뉴' 힌트 ----
 
-    /** 길게 누름이 메뉴의 유일한 입구라서, 설치 뒤 캐릭터가 처음 나타날 때 한 번만 안내한다. 문구는 목업 기준이고 확정 전이다. */
-    private fun showMenuHintOnce() {
-        if (prefs.getBoolean(PREF_MENU_HINT_SHOWN, false)) return
+    /**
+     * 길게 누름이 메뉴의 유일한 입구라서, 메뉴를 한 번 열어 볼 때까지 캐릭터가 나타날 때마다 안내한다([MenuHintPolicy.MAX_SHOWS]번까지).
+     * 문구는 목업 기준이고 확정 전이다.
+     */
+    private fun showMenuHintIfNeeded() {
+        val shown = prefs.getInt(PREF_MENU_HINT_COUNT, 0)
+        if (!MenuHintPolicy.shouldShow(shown, prefs.getBoolean(PREF_MENU_OPENED, false))) return
         val size = overlaySize ?: return
-        val area = usableArea()
+        val area = allowedArea()
         val anchor = PxRect(params.x, params.y, params.x + size.width, params.y + size.height)
         val safe = PxRect(area.left, area.top, area.right, area.bottom)
         val rect = FloatingMenuLayout.hint(anchor, safe, PxSize(dp(HINT_WIDTH_DP), dp(HINT_HEIGHT_DP)), dp(MENU_GAP_DP))
@@ -411,7 +458,7 @@ internal class CharacterOverlayHost(
             title = "VoiceCompanionMenuHint"
         }
         if (!hintWindow.show(lp) { MenuHint() }) return
-        prefs.edit().putBoolean(PREF_MENU_HINT_SHOWN, true).apply()
+        prefs.edit().putInt(PREF_MENU_HINT_COUNT, shown + 1).apply()
         main.postDelayed(hideHint, HINT_VISIBLE_MS)
     }
 
@@ -423,9 +470,10 @@ internal class CharacterOverlayHost(
     /** 캐릭터 창 경계를 기준으로 메뉴 버튼과 시트 자리를 다시 계산한다. 컨트롤 창은 안전 영역 왼쪽 위가 원점이다. */
     private fun relayoutControls() {
         val size = overlaySize ?: return
-        val area = usableArea()
+        val area = usableArea() // 컨트롤 창은 시스템 바 안쪽 전체를 덮는다(바깥 탭을 받으려고). 원점은 이 영역 왼쪽 위다.
+        val allowed = allowedArea() // 메뉴와 시트는 계기판을 뺀 영역 안에만 둔다.
         val anchor = PxRect(params.x, params.y, params.x + size.width, params.y + size.height).offset(-area.left, -area.top)
-        val safe = PxRect(0, 0, area.width(), area.height())
+        val safe = PxRect(allowed.left - area.left, allowed.top - area.top, allowed.right - area.left, allowed.bottom - area.top)
         controlsUi.menu = FloatingMenuLayout.menu(anchor, safe, PxSize(dp(MENU_PILL_WIDTH_DP), dp(MENU_PILL_HEIGHT_DP)), dp(MENU_CLOSE_DP), dp(MENU_GAP_DP))
         // 시트는 담을 내용만큼만 쓴다(안에서 스크롤). 설정처럼 짧은 시트가 빈 칸으로 길어지지 않게 종류별로 높이를 나눈다.
         val sheetHeightDp = when ((controls.surface as? OverlaySurface.Sheet)?.kind) {
@@ -454,6 +502,19 @@ internal class CharacterOverlayHost(
             }
             Log.d(TAG, "오버레이 교체: SWITCH_IN")
             fadeTo(1f) { characterSwitch.inFinished() }
+        }
+    }
+
+    private fun applyPosition() {
+        if (attached) root?.let { windowManager.updateViewLayout(it, params) }
+    }
+
+    /** 눌림 표시를 걷는다. 교체 연출이 창 투명도를 쓰는 중이면 그 값을 건드리지 않는다. */
+    private fun clearPressFeedback() {
+        main.removeCallbacks(pressFeedback)
+        if (pressedShown) {
+            pressedShown = false
+            if (fade == null) setWindowAlpha(PressFeedback.alphaFor(false))
         }
     }
 
@@ -488,12 +549,14 @@ internal class CharacterOverlayHost(
     private fun sizeFor(spec: CharacterOverlaySpec) = OverlaySize(
         (spec.widthDp * density).toInt(),
         (spec.heightDp * density).toInt(),
+        // 창 중심 어긋남(offset)은 캐릭터 팩 SDK가 CharacterOverlaySpec에 offsetXDp/offsetYDp를 넣은 버전부터 읽는다. 지금 고정한 버전엔 없어 0이다.
     )
 
     private fun layoutParams(size: OverlaySize) = WindowManager.LayoutParams(
         size.width,
         size.height,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        // 이 창은 터치를 받아야 한다. FLAG_NOT_TOUCHABLE을 주면 창 불투명도가 0.8에 고정돼(Android 12+ 최대 가림 불투명도 규칙으로 보임, 에뮬레이터 실측) 캐릭터가 항상 흐려진다.
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
@@ -503,13 +566,20 @@ internal class CharacterOverlayHost(
         title = "VoiceCompanionCharacterOverlay"
     }
 
-    private data class OverlaySize(val width: Int, val height: Int)
+    /** 창 크기와, 창 중심이 기준 틀 중심에서 벗어난 거리(오른쪽·아래가 +). 둘 중 하나라도 다르면 창을 새로 만든다. */
+    private data class OverlaySize(val width: Int, val height: Int, val offsetX: Int = 0, val offsetY: Int = 0)
 
     private companion object {
         const val TAG = "VoiceCompanion"
         const val PREF_X = "characterpack.vr.x"
         const val PREF_Y = "characterpack.vr.y"
-        const val PREF_MENU_HINT_SHOWN = "overlay.menuHint.shown"
+        const val PREF_MENU_HINT_COUNT = "overlay.menuHint.count"
+        const val PREF_MENU_OPENED = "overlay.menu.opened"
+        // 캐릭터가 갈 수 있는 영역의 최소 폭. 이보다 좁아지면 계기판 제외를 하지 않는다(작은 화면).
+        const val MIN_AREA_WIDTH_DP = 900
+        // 캐릭터 팩 SDK의 기준 틀(CharacterOverlaySpec.DEFAULT와 같은 300×400dp). 프리뷰는 이 틀에 맞춰 그린다.
+        const val STAGE_WIDTH_DP = 300
+        const val STAGE_HEIGHT_DP = 400
         const val SWITCH_FADE_MS = 220L
         const val HINT_VISIBLE_MS = 7000L
         const val HINT_WIDTH_DP = 300

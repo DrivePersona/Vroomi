@@ -183,3 +183,34 @@ class OverlayGestureTest {
         assertTrue(checked > 3000)
     }
 }
+
+class OverlayGesturePressedTest {
+    private fun OverlayGesture.press(): Boolean = down(500f, 500f, 1000, 500, 0, 2280, 90, 1020)
+
+    @Test
+    fun `누르는 동안만 pressed이고 끌기·길게 누름·뗌 뒤에는 아니다`() {
+        val g = OverlayGesture(touchSlop = 10)
+        assertFalse(g.pressed)
+        g.press()
+        assertTrue(g.pressed)
+        g.move(520f, 500f)
+        assertFalse(g.pressed) // 끌기로 확정됨
+
+        val held = OverlayGesture(touchSlop = 10).apply { press() }
+        assertTrue(held.pressed)
+        held.longPress()
+        assertFalse(held.pressed) // 길게 누름으로 확정됨
+
+        val released = OverlayGesture(touchSlop = 10).apply { press() }
+        released.up()
+        assertFalse(released.pressed)
+    }
+
+    @Test
+    fun `잠긴 동안에는 눌려도 pressed가 아니다`() {
+        val g = OverlayGesture(touchSlop = 10)
+        g.lock()
+        g.press()
+        assertFalse(g.pressed)
+    }
+}
