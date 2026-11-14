@@ -284,6 +284,14 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         onMain {
             // Compose 상태(energyProfileAvailable 포함)는 메인 스레드에서만 읽는다.
             val action = processVehicleInput.execute(input, energyProfileAvailable())
+            // 화면 없이도 신호가 어떻게 처리됐는지 로그로 볼 수 있게 한다(Virtual Console E2E의 증거).
+            when (action) {
+                is VehicleInputAction.Emit -> Log.d(TAG, "차량 입력: ${action.event} (주행=$driving, 주행 중 허용=${action.allowWhileDriving})" +
+                    (if (driving && !action.allowWhileDriving) " → 주행 중이라 차단" else ""))
+                is VehicleInputAction.Driving -> Log.d(TAG, "차량 입력: 주행=${action.isDriving}")
+                VehicleInputAction.Ignore -> Log.d(TAG, "차량 입력: 무시 (${(input as? VehicleInput.Event)?.event})")
+                else -> Unit
+            }
             when (action) {
                 is VehicleInputAction.Catalog -> scheduleVehicleCatalog(action.states)
                 is VehicleInputAction.Status -> scheduleVehicleStatus(action.source, action.message)
@@ -763,6 +771,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         packs.speak(
             request,
             note = { msg -> onMain {
+                Log.d(TAG, "반응 음성 ${request.eventId}: $msg")
                 row?.let { it.note += " · $msg" }
                 if (msg == PLAYBACK_STARTED && !usedFallback) gestureEventId?.let { startGesture(it, seq, selectedClipGesture) }
             } },
@@ -776,6 +785,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() }
             } },
             onFallback = { why ->
+                Log.d(TAG, "반응 음성 ${request.eventId}: 대체 재생 — $why")
                 usedFallback = true
                 row?.let { it.note += " · $why" }
             },
@@ -805,7 +815,12 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         gestureStart?.let(main::removeCallbacks)
         gestureStart = null
         val character = activeCharacterPack ?: return
-        val gesture = CharacterGestureResolver.resolve(character.animations, eventId, clipGesture?.gestureId) ?: return
+        val gesture = CharacterGestureResolver.resolve(character.animations, eventId, clipGesture?.gestureId)
+        if (gesture == null) {
+            Log.d(TAG, "몸짓 없음: ${character.id} $eventId")
+            return
+        }
+        Log.d(TAG, "몸짓 시작: ${character.id} $eventId → ${gesture.animationName}")
         val begin = Runnable {
             gestureStart = null
             if (speechSequence != speakSeq || driving || activeCharacterPack !== character) return@Runnable
@@ -864,6 +879,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                 DropReason.POLICY_SILENT -> "음성 정책상 무음이에요"
             }
         }
+        Log.i(TAG, "반응 ${entry.event}: $what")
         val row = LogRow(clock.format(Date()), "${entry.event.label} → $what")
         logs.add(0, row)
         if (logs.size > MAX_LOGS) logs.removeAt(logs.lastIndex)

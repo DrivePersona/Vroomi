@@ -11,5 +11,6 @@ update: rewrite
 | --- | --- |
 | [CHARACTER_VOICE_BINDING](CHARACTER_VOICE_BINDING.md) | 캐릭터 선택 → 음성 팩 자동 연결 계약 |
 | [SPEECH_GESTURE_SYNC](SPEECH_GESTURE_SYNC.md) | 음성과 몸짓의 동기화 |
+| [CHARACTER_PACK_OVERLAY_FRAMING_REQUEST](CHARACTER_PACK_OVERLAY_FRAMING_REQUEST.md) | 캐릭터별 사각형 오버레이 영역(SDK 잘라 그리기·팩별 값·한계) |
 | [android/ARCHITECTURE.md](../../android/ARCHITECTURE.md) | Android 패키지 규칙 |
 | [android/DESIGN_SYSTEM.md](../../android/DESIGN_SYSTEM.md) | 디자인 시스템 |

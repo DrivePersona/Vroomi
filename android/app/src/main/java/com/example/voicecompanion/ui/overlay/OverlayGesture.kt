@@ -19,6 +19,9 @@ internal class OverlayGesture(touchSlop: Int) {
     private var state = State.IDLE
     private var locked = false
 
+    /** 손가락이 닿아 있고 아직 탭·끌기·길게 누름 어느 쪽으로도 확정되지 않았다. 눌림 표시를 해도 되는 때다. */
+    val pressed: Boolean get() = state == State.PRESSED
+
     /**
      * 새 포인터 입력을 시작한다. 잠겨 있으면 false이고 이 입력은 끝까지 무시한다.
      * true면 호스트가 [LONG_PRESS_MS] 뒤에 [longPress]를 부르도록 타이머를 건다.
