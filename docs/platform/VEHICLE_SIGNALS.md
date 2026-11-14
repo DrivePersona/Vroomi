@@ -202,4 +202,9 @@ Virtual Control에 보이는 63개 카탈로그 항목을 노출·앱 수신·TT
 
 ## 알려진 문제
 
-- `PleosEnergySubscriptions`의 `watch()`는 성공 경로에서 `states.registerDefinition()`을 부르지 않는다. `VehicleStateRepository.observe()`는 등록되지 않은 키를 버리므로 EV 배터리 잔량·배터리 에너지 레벨·충전구 상태 항목이 기록되지 않고 해당 반응도 나오지 않는다(에뮬레이터 데이터 디버그 목록에서 항목 부재 확인, 에너지 범주만 기록됨). 이 PR에서는 고치지 않았다.
+- ~~에너지 신호(SOC·충전구) 반응 없음~~ → 2026-11-15 해결. 원인은 세 가지였다.
+  1. `PleosEnergySubscriptions`가 신호 정의를 저장소에 등록하지 않아, `VehicleStateRepository.observe()`가 값과 반응을 버렸다. 지금은 반응하는 정의를 `PleosEnergySubscriptions.definitions`에 모아 `start()`에서 등록하고, 값만 기록하는 신호도 구독 전에 등록한다.
+  2. 충전구 정의에 반응 방식이 없어 값이 바뀌어도 이벤트가 나지 않았다. 지금은 `CHANGE`라 열림·닫힘마다 `CHARGE_PORT`(정차 중만)가 나온다.
+  3. 전기차에서는 연료 capability 확인이 `ERROR_NOT_SUPPORTED_PROPERTY`로 끝난다. 이 결과를 미정으로 두어 에너지 프로필이 정해지지 않았고, `ProcessVehicleInputUseCase`가 에너지 이벤트를 모두 무시했다. 지금은 확인 실패를 '읽을 수 없음'으로 친다.
+  - 더불어 SOC·연료 키의 쿨다운을 0으로 바꿨다. 범주에는 히스테리시스와 엔진 쿨다운이 이미 있다. 키 쿨다운이 있으면 말하지 않는 범주 전환이 그 시간을 차지해, 바로 뒤의 '부족' 경고를 삼킨다.
+  - AVD 확인: SOC 50·25·80%는 정책상 무음이고, 10%는 `ENERGY_LOW` 팩 클립이 재생된다. 충전구 열림·닫힘은 캐릭터 클립으로 재생된다. 주행 중에는 둘 다 차단된다. 시험: `EnergySignalsTest`.

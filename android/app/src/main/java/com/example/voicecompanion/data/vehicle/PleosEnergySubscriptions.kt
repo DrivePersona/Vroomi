@@ -15,6 +15,7 @@ import com.example.voicecompanion.domain.model.VehicleDomain
 import com.example.voicecompanion.domain.model.VehicleEnergyProfile
 import com.example.voicecompanion.domain.model.VehicleEnergyProfileResolver
 import com.example.voicecompanion.domain.model.VehicleEvent
+import com.example.voicecompanion.domain.model.VehicleReactionPolicy
 import com.example.voicecompanion.domain.model.toVehicleEvent
 import com.example.voicecompanion.domain.model.VehicleValueType
 import java.util.Locale
@@ -46,6 +47,7 @@ internal class PleosEnergySubscriptions(
 
     fun start() {
         states.registerDefinition(profileDefinition)
+        definitions.forEach(states::registerDefinition)
         checkEvProfile()
         checkFuelProfile()
         subscribeEvStateOfCharge()
@@ -98,7 +100,11 @@ internal class PleosEnergySubscriptions(
             updateProfile()
             if (!readable) capabilities.unsupported(definition, "EV 배터리 잔량 읽기가 지원되지 않아요")
         }, onFailure = { error ->
-            states.markError(PROFILE_KEY, "EV capability 확인 실패: ${error.message ?: error.javaClass.simpleName}")
+            // 확인이 실패한 쪽은 읽을 수 없는 것으로 친다. 전기차는 연료 확인이 ERROR_NOT_SUPPORTED_PROPERTY로 끝나는데,
+            // null로 두면 프로필이 끝내 정해지지 않아 에너지 반응이 모두 무시됐다(2026-11-15 AVD 실측).
+            synchronized(profileLock) { evReadable = false }
+            updateProfile()
+            capabilities.unsupported(definition, "EV 배터리 잔량 capability 확인 실패: ${error.message ?: error.javaClass.simpleName}")
         })
     }
 
@@ -111,7 +117,11 @@ internal class PleosEnergySubscriptions(
             updateProfile()
             if (!readable) capabilities.unsupported(definition, "연료 잔량 읽기가 지원되지 않아요")
         }, onFailure = { error ->
-            states.markError(PROFILE_KEY, "연료 capability 확인 실패: ${error.message ?: error.javaClass.simpleName}")
+            // 확인이 실패한 쪽은 읽을 수 없는 것으로 친다. 전기차는 연료 확인이 ERROR_NOT_SUPPORTED_PROPERTY로 끝나는데,
+            // null로 두면 프로필이 끝내 정해지지 않아 에너지 반응이 모두 무시됐다(2026-11-15 AVD 실측).
+            synchronized(profileLock) { fuelReadable = false }
+            updateProfile()
+            capabilities.unsupported(definition, "연료 잔량 capability 확인 실패: ${error.message ?: error.javaClass.simpleName}")
         })
     }
 
@@ -126,12 +136,12 @@ internal class PleosEnergySubscriptions(
     }
 
     private fun subscribeEvStateOfCharge() {
-        val definition = data("ev-state-of-charge", "EV 배터리 잔량", "checkEvBatteryStateOfChargeCapabilities", VehicleValueType.INTEGER, event = null)
+        val definition = STATE_OF_CHARGE_DEFINITION
         watch(definition,
             check = { complete, failed -> ev.checkEvBatteryStateOfChargeCapabilities({ complete(it.accessType.canRead) }, failed) },
             register = {
                 val listener = object : EvBatteryStateOfChargeListener {
-                    override fun onEvBatteryStateOfChargeUpdated(value: Int?) { value?.let { observeEnergy(definition.dataKey, "ev-energy-band", evTracker, it) } }
+                    override fun onEvBatteryStateOfChargeUpdated(value: Int?) { value?.let { observeEnergyLevel(states, STATE_OF_CHARGE, EV_ENERGY_BAND, evTracker, it) } }
                     override fun onFailed(e: Exception) = failed(definition, e)
                 }
                 { ev.unregisterEvBatteryStateOfCharge(listener) }.also { ev.registerEvBatteryStateOfCharge(listener) }
@@ -152,7 +162,7 @@ internal class PleosEnergySubscriptions(
     }
 
     private fun subscribeEvChargePort() {
-        val definition = data("ev-charge-port-open", "충전구 열림 상태", "checkEvChargePortOpenCapabilities", VehicleValueType.BOOLEAN, event = VehicleEvent.CHARGE_PORT)
+        val definition = CHARGE_PORT_DEFINITION
         watch(definition,
             check = { complete, failed -> ev.checkEvChargePortOpenCapabilities({ complete(it.accessType.canRead) }, failed) },
             register = {
@@ -167,6 +177,7 @@ internal class PleosEnergySubscriptions(
     /** Vehicle SDK 2.3.2 exposes a capability and one-shot getter, but no charge-switch update listener. */
     private fun readEvChargeSwitch() {
         val definition = data("ev-charge-switch", "충전 스위치", "checkEvChargeSwitchCapabilities", VehicleValueType.BOOLEAN, event = null)
+        states.registerDefinition(definition)
         capabilities.request(definition, { complete, failed ->
             ev.checkEvChargeSwitchCapabilities({ complete(it.accessType.canRead) }, failed)
         }, { readable ->
@@ -183,6 +194,7 @@ internal class PleosEnergySubscriptions(
             check = { complete, failed -> ev.checkEvChargeCurrentDrawLimitCapabilities({ config, values -> complete(config.accessType.canRead && values.isNotEmpty()) }, failed) },
             read = { complete, failed -> ev.getEvChargeCurrentDrawLimit(complete, failed) })
         val percent = data("ev-charge-percent-limit-options", "충전 목표 한도 지원값", "checkEvChargePercentLimitCapabilities", VehicleValueType.ENUM, event = null)
+        states.registerDefinition(percent)
         capabilities.request(percent, { complete, failed ->
             ev.checkEvChargePercentLimitCapabilities({ config, values -> complete(config.accessType.canRead to values) }, failed)
         }) { (readable, values) ->
@@ -203,6 +215,7 @@ internal class PleosEnergySubscriptions(
         check: ((Boolean) -> Unit, (Exception) -> Unit) -> Unit,
         read: ((Float?) -> Unit, (Exception) -> Unit) -> Unit,
     ) {
+        states.registerDefinition(definition)
         capabilities.request(definition, { complete, failed -> check(complete, failed) }) { readable ->
             if (!readable) return@request capabilities.unsupported(definition, "읽기 capability가 없어요")
             capabilities.request(definition, { complete, failed -> read(complete, failed) }) {
@@ -230,10 +243,10 @@ internal class PleosEnergySubscriptions(
     }
 
     private fun subscribeFuelPercent() {
-        val definition = data("fuel-percent", "연료 잔량", "checkFuelPercentCapabilities", VehicleValueType.INTEGER)
+        val definition = FUEL_PERCENT_DEFINITION
         watch(definition, { complete, failed -> fuel.checkFuelPercentCapabilities({ complete(it.accessType.canRead) }, failed) }, {
             val listener = object : FuelPercentListener {
-                override fun onFuelPercentUpdated(value: Int?) { value?.let { observeEnergy(definition.dataKey, "fuel-energy-band", fuelTracker, it) } }
+                override fun onFuelPercentUpdated(value: Int?) { value?.let { observeEnergyLevel(states, FUEL_PERCENT, FUEL_ENERGY_BAND, fuelTracker, it) } }
                 override fun onFailed(e: Exception) = failed(definition, e)
             }
             { fuel.unregisterFuelPercent(listener) }.also { fuel.registerFuelPercent(listener) }
@@ -258,17 +271,6 @@ internal class PleosEnergySubscriptions(
         })
     }
 
-    private fun observeEnergy(dataKey: String, bandKey: String, tracker: EnergyLevelTracker, value: Int) {
-        states.observe(dataKey, value.coerceIn(0, 100).toString())
-        val changedBand = tracker.observe(value)
-        val band = tracker.current() ?: return
-        val category = data(bandKey, "에너지 범주", "SOC/fuel threshold", VehicleValueType.ENUM, event = null)
-        states.registerDefinition(category)
-        states.observe(bandKey, band.name)
-        if (changedBand == null) return
-        states.emitReaction(dataKey, band.toVehicleEvent())
-    }
-
     private fun observeFloat(definition: VehicleDataDefinition, value: Float?) {
         states.observe(definition.dataKey, value?.let { String.format(Locale.ROOT, "%.2f", it) })
     }
@@ -278,6 +280,8 @@ internal class PleosEnergySubscriptions(
         check: ((Boolean) -> Unit, (Exception) -> Unit) -> Unit,
         register: () -> (() -> Unit),
     ) {
+        // VehicleStateRepository는 등록되지 않은 키의 값과 반응을 버린다. 구독 전에 등록해 둔다(이미 등록된 키는 그대로 둔다).
+        states.registerDefinition(definition)
         capabilities.request(definition, { complete, failed -> check(complete, failed) }) { readable ->
             if (!readable) return@request capabilities.unsupported(definition, "읽기 capability가 없어요")
             if (stopped()) return@request
@@ -296,17 +300,7 @@ internal class PleosEnergySubscriptions(
         capability: String,
         type: VehicleValueType,
         event: VehicleEvent? = null,
-    ) = VehicleDataDefinition(
-        dataKey = key,
-        displayName = label,
-        domain = VehicleDomain.MOTION,
-        capability = capability,
-        permission = "pleos.car.permission.CAR_ENERGY",
-        valueType = type,
-        reactionEvent = event,
-        cooldownMs = event?.cooldownMs ?: 60_000,
-        allowWhileDriving = false,
-    )
+    ) = energyDefinition(key, label, capability, type, event)
 
     private fun failed(definition: VehicleDataDefinition, error: Exception) {
         states.markError(definition.dataKey, error.message ?: error.javaClass.simpleName)
@@ -315,7 +309,60 @@ internal class PleosEnergySubscriptions(
 
     private val AccessType.canRead get() = this == AccessType.READ || this == AccessType.READ_WRITE
 
-    private companion object {
+    internal companion object {
         const val PROFILE_KEY = "vehicle-energy-profile"
+        const val STATE_OF_CHARGE = "ev-state-of-charge"
+        const val CHARGE_PORT_OPEN = "ev-charge-port-open"
+        const val FUEL_PERCENT = "fuel-percent"
+        const val EV_ENERGY_BAND = "ev-energy-band"
+        const val FUEL_ENERGY_BAND = "fuel-energy-band"
+
+        private fun energyDefinition(
+            key: String,
+            label: String,
+            capability: String,
+            type: VehicleValueType,
+            event: VehicleEvent? = null,
+            policy: VehicleReactionPolicy? = null,
+            cooldownMs: Long = event?.cooldownMs ?: 60_000,
+        ) = VehicleDataDefinition(
+            dataKey = key,
+            displayName = label,
+            domain = VehicleDomain.MOTION,
+            capability = capability,
+            permission = "pleos.car.permission.CAR_ENERGY",
+            valueType = type,
+            reactionEvent = event,
+            reactionPolicy = policy,
+            cooldownMs = cooldownMs,
+            allowWhileDriving = false,
+        )
+
+        /**
+         * 잔량은 에너지 범주가 바뀔 때만 반응한다([observeEnergyLevel]). 범주에는 히스테리시스가 있고 범주마다 엔진 쿨다운이 따로 있으니
+         * 이 키의 쿨다운은 0이다. 키 쿨다운을 두면 말하지 않는 범주(여유·보통·확인) 전환이 그 시간을 차지해 바로 뒤의 '부족' 경고를 삼킨다.
+         */
+        val STATE_OF_CHARGE_DEFINITION = energyDefinition(STATE_OF_CHARGE, "EV 배터리 잔량", "checkEvBatteryStateOfChargeCapabilities", VehicleValueType.INTEGER, cooldownMs = 0)
+        val FUEL_PERCENT_DEFINITION = energyDefinition(FUEL_PERCENT, "연료 잔량", "checkFuelPercentCapabilities", VehicleValueType.INTEGER, cooldownMs = 0)
+
+        /** 충전구는 열림·닫힘이 바뀔 때마다(첫 값은 기준값) 말한다. 정차 중에만 말한다. */
+        val CHARGE_PORT_DEFINITION = energyDefinition(CHARGE_PORT_OPEN, "충전구 열림 상태", "checkEvChargePortOpenCapabilities", VehicleValueType.BOOLEAN,
+            event = VehicleEvent.CHARGE_PORT, policy = VehicleReactionPolicy.CHANGE)
+
+        private val EV_BAND_DEFINITION = energyDefinition(EV_ENERGY_BAND, "EV 에너지 범주", "SOC threshold", VehicleValueType.ENUM)
+        private val FUEL_BAND_DEFINITION = energyDefinition(FUEL_ENERGY_BAND, "연료 에너지 범주", "fuel threshold", VehicleValueType.ENUM)
+
+        /** 반응을 낼 수 있는 에너지 신호. [start]가 구독 전에 등록한다. */
+        val definitions = listOf(STATE_OF_CHARGE_DEFINITION, FUEL_PERCENT_DEFINITION, CHARGE_PORT_DEFINITION, EV_BAND_DEFINITION, FUEL_BAND_DEFINITION)
+
+        /** 잔량(%)을 기록하고, 범주가 바뀌었을 때만 그 범주의 이벤트를 낸다. 첫 값은 기준값이라 말하지 않는다. SDK와 무관해 시험할 수 있다. */
+        fun observeEnergyLevel(states: VehicleStateRepository, dataKey: String, bandKey: String, tracker: EnergyLevelTracker, value: Int) {
+            states.observe(dataKey, value.coerceIn(0, 100).toString())
+            val changedBand = tracker.observe(value)
+            val band = tracker.current() ?: return
+            states.observe(bandKey, band.name)
+            if (changedBand == null) return
+            states.emitReaction(dataKey, band.toVehicleEvent())
+        }
     }
 }
