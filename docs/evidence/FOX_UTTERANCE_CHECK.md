@@ -50,6 +50,8 @@ update: snapshot
 
 ## 새 클립 반영 후 재측정 (2026-11-14)
 
+이 클립들은 그 뒤 `voice-pack-sdk` 0.7.0으로 게시돼 앱 기본 빌드에 들어갔다(이 저장소 PR #60). 아래 측정은 게시 전 내부 자산 빌드로 한 것이다.
+
 [FOX_SPIRIT_VOICE_SLOT_REQUEST](../content/FOX_SPIRIT_VOICE_SLOT_REQUEST.md) §8의 여우 목소리 18개를 넣은 `internalDebug`(팩 `0.3.1-local`, 내부 자산)로 같은 신호를 다시 넣었다.
 
 | 콘솔 신호 | 앱 이벤트(슬롯) | 실제 발화(로그의 요청 문구) | 재생 로그 |
