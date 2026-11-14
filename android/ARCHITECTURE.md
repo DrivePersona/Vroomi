@@ -66,7 +66,7 @@ characterpack/   data/, domain/, model/, ui/, util/ — GLB 3D와 검증된 PNG 
 - `ui/theme`과 `ui/component`는 화면별 하드코딩 대신 공통 시각·상호작용 규칙을 제공한다. 기준은 `DESIGN_SYSTEM.md`에 둔다.
 - `presentation/viewmodel`은 `StateFlow<CompanionUiState>`를 제공하고, Intent를 `CompanionUiRuntime` 계약으로 전달한다.
 - `data/vehicle`의 Pleos 어댑터는 `VehicleDataSource`로 입력을 내보내고, `data/mapper`가 같은 `VehicleInput` 모델로 바꾼다. `data/repository/PleosVehicleRepository`가 Domain `VehicleRepository`를 구현한다.
-- `app`만 위 요소를 조립한다. `MainActivity`는 생명주기와 화면 진입·시스템 효과만 맡고 화면 구성은 `CompanionScreen`에 둔다.
+- `app`만 위 요소를 조립한다. 이 앱에는 Activity가 없다. `CompanionBootReceiver`가 부팅 완료 시 `CompanionRuntimeService`를 시작하고, 서비스가 `CompanionRuntime`(차량 구독·반응 엔진·오버레이)을 소유한다. 이전 설정 화면(`CompanionScreen` 계열)은 더 이상 진입점이 없다.
 
 테스트도 대상 패키지를 따라 배치한다. 실제 디버그 팩을 읽는 교차 검사는 `integration/`에 둔다.
 

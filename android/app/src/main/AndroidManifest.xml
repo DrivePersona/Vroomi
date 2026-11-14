@@ -19,6 +19,13 @@
          SDK가 INTERNET(서버 모드용)도 매니페스트 병합으로 끌어온다. -->
     <uses-permission android:name="pleos.car.permission.TTS_SERVICE" />
 
+    <!-- Android 콜드 부팅 진입점. Activity를 열지 않고 런타임 서비스만 시작한다. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- 런타임 서비스를 포그라운드로 유지한다(주행 중 오버레이가 숨어도 차량 신호를 계속 받기 위해). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <!-- 정차 중 캐릭터를 런처/일반 배경 위에 올리는 특수 권한이다.
          실제 Pleos 제품 배포 전에는 이 권한과 WindowManager 사용 범위를 별도로 승인받아야 한다. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -41,14 +48,29 @@
             android:name="android.car"
             android:required="false" />
 
-        <activity
-            android:name=".ui.MainActivity"
-            android:exported="true">
+        <!-- 이 앱에는 Activity가 없다. 이전 보이스 컴패니언 설정 화면은 더 이상 쓰지 않으며,
+             런타임(CompanionRuntimeService)과 오버레이만 동작한다. -->
+        <!-- 포그라운드 서비스다. 주행 중 오버레이 창이 없으면 앱이 백그라운드로 밀려 시스템이 유휴 서비스를 정지시키고
+             (실측: am_freeze → am_stop_idle_service), 차량 신호와 정차 복귀를 받지 못했다. -->
+        <service
+            android:name=".app.CompanionRuntimeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="vehicle_signal_companion_overlay" />
+        </service>
+
+        <receiver
+            android:name=".app.CompanionBootReceiver"
+            android:directBootAware="false"
+            android:enabled="true"
+            android:exported="false">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
-        </activity>
+        </receiver>
     </application>
 
 </manifest>
