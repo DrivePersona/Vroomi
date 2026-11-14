@@ -5,7 +5,7 @@ update: rewrite
 
 # 음성 팩 SDK 요청: 여우 신령 빠진 대사 슬롯 8개
 
-**기준일:** 2026-11-14 · **대상:** `voice-pack-sdk`(비공개) `ai.fox-spirit.voicedesign`(앱이 쓰는 `voicepack-content` 0.6.0 안의 팩 0.3.0) · **짝 캐릭터:** `ai.meshy.fox`(여우 신령, 화면에는 무녀 복장) · **요청한 쪽:** 앱(이 저장소) · **상태:** 여우 목소리 18개는 앱 쪽에서 생성해 에뮬레이터에서 재생까지 확인했다(§8). `voice-pack-sdk` 반영과 중립 2개는 남았다. 말투는 고풍스러운 반말로 정했다. 문구 목록은 [FOX_SPIRIT_VOICE_SLOTS.csv](FOX_SPIRIT_VOICE_SLOTS.csv)다.
+**기준일:** 2026-11-14 · **대상:** `voice-pack-sdk`(비공개) `ai.fox-spirit.voicedesign`(앱이 쓰는 `voicepack-content` 0.6.0 안의 팩 0.3.0) · **짝 캐릭터:** `ai.meshy.fox`(여우 신령, 화면에는 무녀 복장) · **요청한 쪽:** 앱(이 저장소) · **상태:** 완료. 13개 슬롯을 모두 채운 팩(0.4.0)이 `voice-pack-sdk` PR #13으로 들어가 0.7.0으로 게시됐고, 앱은 0.7.0을 쓴다(이 저장소 PR #60). 자세한 내용은 §8·§9. 말투는 고풍스러운 반말로 정했다. 문구 목록은 [FOX_SPIRIT_VOICE_SLOTS.csv](FOX_SPIRIT_VOICE_SLOTS.csv)다.
 
 ## 1. 요약
 
@@ -106,8 +106,25 @@ update: rewrite
 | 앱 확인 | 팩 버전 `0.3.1-local`로 묶어 `internalDebug`의 내부 자산(git 무시 경로)에 넣고 AVD에서 재측정했다. 공조·도어·창문·조명 신호가 `대체 재생` 없이 여우 클립으로 `재생됨`([FOX_UTTERANCE_CHECK](../evidence/FOX_UTTERANCE_CHECK.md)) |
 
 남은 것:
-- **`voice-pack-sdk` 반영:** 18개 WAV와 매니페스트 추가분(문구·크기·sha256)을 비공개 팩에 넣고 `voicepack-content`를 새로 게시해야 앱 기본 빌드에 들어간다. 지금 앱 기본 빌드(0.6.0)에는 없다.
-- **중립 2개(WARNING·ENERGY_LOW):** 어느 팩에도 중립 참조 음성이 없어 만들지 않았다. 모든 캐릭터가 함께 쓰는 음성이라 따로 정한다.
+- ~~`voice-pack-sdk` 반영~~ → §9에서 완료.
+- ~~중립 2개(WARNING·ENERGY_LOW)~~ → §9에서 SDK 대본으로 생성.
 - **`gestureId`:** 새 슬롯 클립에는 비워 뒀다. 캐릭터 매니페스트의 지원 몸짓을 확인한 뒤 채운다.
 - **권리 메타데이터:** 바꾸지 않았다. 시제품 메모만 매니페스트 `prototype.localAdditions`에 남겼다.
+
+## 9. `voice-pack-sdk` 반영과 게시 (2026-11-14)
+
+| 단계 | 결과 |
+| --- | --- |
+| 팩 | `ai.fox-spirit.voicedesign` 0.4.0. 클립 33개, 13개 슬롯 모두 준비. WAV는 Git LFS |
+| 캐릭터 6개 슬롯 | §8의 18개를 그대로 넣었다. SDK 대사 매트릭스(`RELEASE_DIALOGUE_MATRIX_V1.json`)의 이 6개 슬롯 문구를 변형 1로 바꿨다 |
+| WARNING·ENERGY_LOW | SDK 매트릭스 문구 그대로("오냐, 차량 경고 확인. 기특하도다." / "오냐, 에너지 잔량 낮음. 기특하도다.") SDK 생성 도구 설정으로 만들었다. 문구 뒤 1초 쉼을 0.35초로 줄여 4초 안에 맞췄다. `gestureId` 없음 |
+| SDK 검사 | 단위 테스트 65개 통과, `check-release-readiness --review`에서 여우 팩 READY |
+| 머지·게시 | `voice-pack-sdk` PR #13 머지, 태그 `v0.7.0`으로 게시 |
+| 앱 반영 | 자동 동기화 PR #60(의존성 해석·단위 검증·내부 APK 빌드 통과)을 머지해 `drivepersona.voicepack.version=0.7.0` |
+
+남은 것:
+- **안전 클립 2개는 청취하지 않았다.** 길이·에너지만 확인했다. 콘솔에서 두 신호를 넣을 수 없어 앱 재생도 확인하지 못했다.
+- **안전 문구가 두 기준으로 나뉜다.** SDK 매트릭스는 캐릭터 말투 문구("오냐, … 기특하도다.")를 여우 목소리로 녹음하고, 공개 [DIALOGUE_MATRIX.csv](DIALOGUE_MATRIX.csv)는 모든 캐릭터가 함께 쓰는 중립 문장이며, 앱 기본 문구는 또 다르다(§3.2). 안전 이벤트를 캐릭터 목소리로 할지 중립 음성으로 할지 정해야 한다.
+- 0.7.0으로 빌드한 앱을 에뮬레이터에서 다시 재지는 않았다(같은 팩을 내부 자산으로 넣은 빌드에서 확인).
+- 새 캐릭터 슬롯의 `gestureId`는 비어 있다.
 
