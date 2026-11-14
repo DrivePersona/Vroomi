@@ -136,7 +136,7 @@ update: rewrite
 5. 획득과 장착은 별도 상태로 표현한다.
 6. 캐릭터 전환 음성은 이전 → 새 캐릭터 순으로 재생하고 body gesture를 해당 음성에 맞춘다.
 7. Pleos 차량/지도/상태 화면과 시스템 바를 유지하며 floating menu와 compact sheet가 safe bounds 밖으로 나가지 않는다.
-8. 제품 컬러/컴포넌트는 실제 Pleos 캡처와 현재 CompanionTheme 토큰을 기준으로 한다. TDS 정식 인증을 주장하지 않는다.
+8. 플로팅 메뉴와 compact 시트의 컬러·글자·컴포넌트는 [TDS](https://tossmini-docs.toss.im/tds-mobile/) 토큰과 구조를 따른다([android/DESIGN_SYSTEM.md](../../android/DESIGN_SYSTEM.md)의 "오버레이 시트 — TDS 기준"). 문서에 값이 없는 항목은 프로젝트 값으로 구분해 적는다. TDS 정식 인증을 주장하지 않는다.
 
 ## 9. 현재 상태와 출시에 필요한 작업
 
