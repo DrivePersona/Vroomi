@@ -46,3 +46,4 @@ update: snapshot
 - **TOUCH는 클립이 없어 아무 소리도 나지 않는다.**
 - 확인하지 못했다: GREETING의 실제 문구(로그에 없다), MODE·TIRE·WARNING·CHARGE·ENERGY_LOW(신호를 앱에 넣을 수 없거나 자동 반응이 없다. [VIRTUAL_CONSOLE_SIGNAL_SWEEP](VIRTUAL_CONSOLE_SIGNAL_SWEEP.md) 참고), 충전 포트 열림(데이터만 수신, 발화 없음), 주행거리 이정표(이번 점검에서는 반응이 나지 않았다. 원인 미확정).
 - 주행 중 차단 규칙(편의 계열은 말하지 않음)은 이번 점검 범위가 아니다(주차 상태에서 점검).
+- 빠진 슬롯의 대사 확정·음성 생성 요청: [FOX_SPIRIT_VOICE_SLOT_REQUEST](../content/FOX_SPIRIT_VOICE_SLOT_REQUEST.md).

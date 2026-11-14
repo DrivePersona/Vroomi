@@ -13,5 +13,6 @@ update: rewrite
 | [RELEASE_ROSTER](RELEASE_ROSTER.md) | 릴리스 허용 목록과 게이트 |
 | [CHARACTER_TARGET_INVENTORY.csv](CHARACTER_TARGET_INVENTORY.csv) | 33개 ID 쌍 |
 | [DIALOGUE_MATRIX](DIALOGUE_MATRIX.md) · [csv](DIALOGUE_MATRIX.csv) | 대사 슬롯 초안 |
+| [FOX_SPIRIT_VOICE_SLOT_REQUEST](FOX_SPIRIT_VOICE_SLOT_REQUEST.md) | 음성 팩 SDK 요청: 여우 신령 빠진 대사 슬롯 8개 |
 | [ANIMATION_AND_ACTING](ANIMATION_AND_ACTING.md) | 연기·애니메이션 제작 방법과 교훈 |
 | [PACK_RELEASES](PACK_RELEASES.md) | 비공개 팩 게시 기록(워크플로우가 자동 추가) |
