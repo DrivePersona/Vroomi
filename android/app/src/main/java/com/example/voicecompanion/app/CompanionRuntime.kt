@@ -193,9 +193,12 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     }
     private val characterOverlay = CharacterOverlayHost(app, prefs, overlayPort)
 
-    /** 내부 디버그 APK에서만 후보 GLB를 확인한다. 출시 빌드는 반드시 로스터를 따른다. */
+    /**
+     * 후보 GLB는 내부 빌드(디버그, 또는 internal flavor)에서만 확인한다. 공개용 review 빌드와 출시 로스터는 반드시 로스터를 따른다.
+     * internal flavor의 release APK까지 허용하는 것은 현시점의 설정이다. 후보 캐릭터는 아직 상업 이용 승인 전이다.
+     */
     private val internalCandidatePreview: Boolean
-        get() = BuildConfig.DEBUG && releaseRoster.entries.isEmpty()
+        get() = (BuildConfig.DEBUG || BuildConfig.FLAVOR == "internal") && releaseRoster.entries.isEmpty()
 
     /** 'VR 시작'을 눌러도 되는지. 이 값이 false면 설정 화면은 그대로 남는다. */
     val canStartVr: Boolean
@@ -461,7 +464,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     private fun restoreCharacterPackIfLoaded() {
         if (!packsLoaded || !characterPacksLoaded) return
-        characterPackNotice = characters.restore(prefs.getString(PREF_CHARACTER_PACK, null))
+        val saved = prefs.getString(PREF_CHARACTER_PACK, null)
+        characterPackNotice = characters.restore(saved)
+        // SDK의 restore는 처음 시작이면 첫 READY 팩을 고른다. 현시점에는 그 자리를 첫 시작 캐릭터로 바꾼다.
+        // 목록에 없거나 쓸 수 없으면 select가 기존(SDK) 선택을 그대로 둔다.
+        if (saved == null) characters.select(FIRST_RUN_CHARACTER_ID)
         refreshCharacterPacks()
         ensureDefaultCharacter()
     }
@@ -893,6 +900,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         private const val MAX_LOGS = 50
         private const val VEHICLE_CATALOG_DEBOUNCE_MS = 100L
         private const val MAX_VOLUME = 0.8f // 음량 상한(§6). 엔진과 미리듣기가 같은 값을 쓴다
+        private const val FIRST_RUN_CHARACTER_ID = "ai.meshy.fox" // 현시점 첫 시작 캐릭터: 여우 신령(화면에는 여우 무녀)
         private const val PREF_CHARACTER_PACK = "characterpack.selected"
         private const val PREF_VR_ENABLED = "characterpack.vr.enabled"
         private const val PREF_OWNED_CHARACTERS = "collection.owned"
