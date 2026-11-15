@@ -81,7 +81,7 @@ VoiceCompanionService: runtime started; action=com.example.voicecompanion.action
 VoiceCompanion: overlay sync: VrOverlayInput(enabled=true, stationary=true, settingsVisible=false, readyCharacter=true, overlayPermissionGranted=true) character=ai.meshy.fox
 ```
 
-**7. Open the Virtual Console and send a brake signal.** The console only applies your input while a browser has it open.
+**7. Open the Virtual Console, send a brake signal, and check the reaction.** The console only applies your input while a browser has it open.
 
 ```bash
 adb forward tcp:8088 tcp:8088
@@ -93,35 +93,18 @@ In a browser open `http://127.0.0.1:8088/` and raise Brake Pedal from 0% to **ab
 curl -X PUT "http://127.0.0.1:8088/vehicle/controls?brake=70"
 ```
 
-**8. Check the app's reaction.**
+Then read the app's reaction:
 
 ```bash
 adb logcat -d -s VoiceCompanion
 ```
 
 ```text
-차량 입력: BRAKE (주행=false, 주행 중 허용=true)
 반응 BRAKE: 말하기 요청 "오냐, 천천히 가거라."
 반응 음성 BRAKE: 재생됨
-몸짓 없음: ai.meshy.fox BRAKE
 ```
 
-The log lines are Korean, as the app writes them:
-
-- Line 1 is the vehicle input (`BRAKE`, parked, speech allowed while driving).
-- Line 2 is the speak request. The fox says "오냐, 천천히 가거라." (roughly "Very well, go slowly.").
-- Line 3 confirms playback (`재생됨` = "played").
-- Line 4 (`몸짓 없음` = "no gesture") is expected. The fox has no brake gesture yet, so the character stays still.
-
-Brake reactions have a 10-second cooldown. To check again, lower the brake to 0%, wait 10 seconds, and raise it to about 70% again.
-
-**9. Clean up.**
-
-```bash
-curl -X PUT "http://127.0.0.1:8088/vehicle/controls?brake=0"
-adb forward --remove tcp:8088
-adb uninstall --user 10 com.example.voicecompanion
-```
+The log is in Korean, as the app writes it. The fox says "오냐, 천천히 가거라." (roughly "Very well, go slowly."), and `재생됨` ("played") means playback started. The fox has no brake gesture yet, so the character itself stays still. To try again, set the brake back to 0%, wait 10 seconds (the cooldown), and raise it again.
 
 | Symptom | What to check |
 | --- | --- |
