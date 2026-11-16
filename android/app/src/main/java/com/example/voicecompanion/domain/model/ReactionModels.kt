@@ -121,10 +121,13 @@ object VehicleSpeechPolicy {
     val voicePackClipEventIds: Set<String>
         // WIPER clips exist in the new character packs and release dialogue matrix, even though
         // the current vehicle adapter reports wiper state as data only (no reaction event yet).
-        get() = characterClipEventIds + neutralClipEventIds + "WIPER"
+        get() = characterClipEventIds + neutralClipEventIds + "WIPER" + TOUCH_EVENT_ID
+
+    /** TOUCH(사용자가 아바타를 탭함)는 차량 이벤트가 아니라 팩 슬롯만 있다. 클립도 몸짓도 캐릭터 연기다. */
+    const val TOUCH_EVENT_ID = "TOUCH"
 
     val characterGestureEventIds: Set<String>
-        get() = characterClipEventIds
+        get() = characterClipEventIds + TOUCH_EVENT_ID
 
     val safetyEvents: Set<VehicleEvent>
         get() = eventOutputs.filterValues { it == SpeechOutput.NEUTRAL_CLIP }.keys

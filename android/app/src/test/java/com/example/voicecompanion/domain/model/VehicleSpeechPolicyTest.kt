@@ -61,7 +61,7 @@ class VehicleSpeechPolicyTest {
     fun `every predefined vehicle event has an explicit output and safety never enters gesture manifests`() {
         val clipEvents = VehicleSpeechPolicy.characterClipEventIds
 
-        assertEquals(12, VehicleSpeechPolicy.voicePackClipEventIds.size)
+        assertEquals(13, VehicleSpeechPolicy.voicePackClipEventIds.size)
         assertEquals(setOf(VehicleEvent.WARNING, VehicleEvent.ENERGY_URGENT), VehicleSpeechPolicy.safetyEvents)
         assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains("WARNING"))
         assertFalse(VehicleSpeechPolicy.characterGestureEventIds.contains("ENERGY_LOW"))
@@ -72,6 +72,10 @@ class VehicleSpeechPolicyTest {
         assertTrue(clipEvents.contains("CHARGE"))
         assertTrue(VehicleSpeechPolicy.voicePackClipEventIds.contains("WIPER"))
         assertFalse(clipEvents.contains("WIPER"))
+        // TOUCH는 사용자 탭 전용 슬롯: 팩·몸짓 계약에는 들어가지만 차량 이벤트 정책에는 없다.
+        assertTrue(VehicleSpeechPolicy.voicePackClipEventIds.contains("TOUCH"))
+        assertTrue(VehicleSpeechPolicy.characterGestureEventIds.contains("TOUCH"))
+        assertFalse(clipEvents.contains("TOUCH"))
         assertFalse(clipEvents.contains(VehicleEvent.ENERGY_SUFFICIENT.name))
         assertFalse(clipEvents.contains(VehicleEvent.ENERGY_ATTENTION.name))
     }
@@ -111,7 +115,7 @@ class VehicleSpeechPolicyTest {
         assertEquals("CHARGE", VehicleSpeechPolicy.canonicalEventId(VehicleEvent.CHARGE_PORT))
         assertEquals("ENERGY_LOW", VehicleSpeechPolicy.canonicalEventId(VehicleEvent.ENERGY_URGENT))
         assertEquals(
-            setOf("BRAKE", "TURN", "MODE", "TIRE", "WARNING", "DOOR", "WINDOW", "AMBIENT_LIGHT", "HVAC", "CHARGE", "ENERGY_LOW", "WIPER"),
+            setOf("BRAKE", "TURN", "MODE", "TIRE", "WARNING", "DOOR", "WINDOW", "AMBIENT_LIGHT", "HVAC", "CHARGE", "ENERGY_LOW", "WIPER", "TOUCH"),
             VehicleSpeechPolicy.voicePackClipEventIds,
         )
     }

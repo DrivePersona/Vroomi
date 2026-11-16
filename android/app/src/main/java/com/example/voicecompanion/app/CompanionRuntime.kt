@@ -183,6 +183,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private var greetingEnabled by mutableStateOf(true)
     private var greetingChanceUsed = false // 세션 첫 표시 때 한 번만 인사를 정한다. 그때 설정이 꺼져 있거나 말할 수 없어도 기회는 지나간 것이다
     private var lastTouchAt = -TOUCH_COOLDOWN_MS
+    private var touchVariant = 0
     private val overlayPort = object : OverlayPort {
         override fun state() = overlayState()
         override fun touchCharacter() = this@CompanionRuntime.touchCharacter()
@@ -672,7 +673,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         val ready = linkedVoicePackId(character) == activePack.id &&
             activePack.canSpeak(TOUCH_EVENT) && activePack.variantCount(TOUCH_EVENT) > 0
         Log.d(TAG, "TOUCH ${character.id}: ${if (ready) "클립 재생" else "TOUCH 클립이 없어요"}")
-        if (ready) playClip(TOUCH_EVENT, 0, "TOUCH")
+        if (ready) {
+            // 줄은 탭마다 돌아가며 말한다(1→2→3→1…). 몸짓은 같은 번호의 gestureId가 고른다.
+            playClip(TOUCH_EVENT, touchVariant % activePack.variantCount(TOUCH_EVENT), "TOUCH")
+            touchVariant++
+        }
     }
 
     /** 시트에서 캐릭터를 골랐다. 기본 5개이거나 보유한 가챠 후보만 장착하고 나머지는 거절한다. 캐릭터와 음성 팩은 [selectCharacterPack]이 함께 바꾼다(이슈 #4). */
@@ -734,7 +739,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             note = { msg ->
                 onMain {
                     Log.d(TAG, "$label $eventId[$variantIndex]: $msg")
-                    if (msg == PLAYBACK_STARTED && eventId in VehicleSpeechPolicy.characterClipEventIds) {
+                    if (msg == PLAYBACK_STARTED && eventId in VehicleSpeechPolicy.characterGestureEventIds) {
                         startGesture(eventId, seq, clipGesture)
                     }
                 }
