@@ -34,8 +34,17 @@ Successful package compatibility dispatches append the pinned runtime versions a
 - contentPackIds: ai.apprentice-magical-girl.voicedesign, ai.car-geek-mechanic.voicedesign, ai.chuunibyo-demon-lord.voicedesign, ai.clumsy-junior.voicedesign, ai.cooldere-vehicle-os.voicedesign, ai.fox-spirit.voicedesign, ai.gentle-older-sister.voicedesign, ai.in-car-streamer.voicedesign, ai.stoic-guardian-knight.voicedesign, ai.tsundere-lady.voicedesign
 - contentPackCount: 10
 
+## 2026-11-16 · voice-pack-sdk
+- voice-pack-sdk: 0.9.0
+- character-pack-sdk: 0.3.3
+- component: voice-pack-sdk
+- runtimeVersion: 0.9.0
+- contentVersion: 0.9.0
+- contentPackIds: ai.apprentice-magical-girl.voicedesign, ai.car-geek-mechanic.voicedesign, ai.chuunibyo-demon-lord.voicedesign, ai.clumsy-junior.voicedesign, ai.cooldere-vehicle-os.voicedesign, ai.fox-spirit.voicedesign, ai.gentle-older-sister.voicedesign, ai.in-car-streamer.voicedesign, ai.stoic-guardian-knight.voicedesign, ai.tsundere-lady.voicedesign
+- contentPackCount: 10
+
 ## 2026-11-16 · character-pack-sdk
-- voice-pack-sdk: 0.8.0
+- voice-pack-sdk: 0.9.0
 - character-pack-sdk: 0.3.4
 - component: character-pack-sdk
 - runtimeVersion: 0.3.4
