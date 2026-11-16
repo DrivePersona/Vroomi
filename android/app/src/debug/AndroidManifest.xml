@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- 디버그 전용 LivLiv 스파이크 제어. 릴리스 빌드에는 들어가지 않는다. -->
+        <receiver
+            android:name="com.example.voicecompanion.ui.LivLivProbeReceiver"
+            android:exported="true" />
+    </application>
+</manifest>

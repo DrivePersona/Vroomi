@@ -1,0 +1,1 @@
+function e(e,t,n){let r=t[0]-e[0],i=(t[1]-e[1])*n;return{x:e[0],y:e[1],rotation:Math.atan2(i,r),scale:Math.hypot(r,i)*2}}var t=class extends Error{code;status;constructor(e,t,n={}){super(t,n.cause===void 0?void 0:{cause:n.cause}),this.name=`LivLivError`,this.code=e,n.status!==void 0&&(this.status=n.status)}};export{e as n,t};

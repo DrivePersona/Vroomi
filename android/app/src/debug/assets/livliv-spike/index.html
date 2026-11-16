@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: #151822; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #status { position: fixed; top: 12px; left: 12px; color: white; font: 18px sans-serif;
+    background: #151822c9; padding: 8px 12px; z-index: 2; }
+</style>
+<div id="status">Loading LivLiv…</div>
+<canvas id="stage"></canvas>
+<script type="module">
+  // 디버그 전용 Pleos 시험 페이지: 공식 LivLiv Player + 확정 매핑(mapping.js).
+  // 주소: index.html?persona=seori|gomji|pin&t=1 (t=1: 투명 배경·상태 글 숨김). 이벤트는 window.probeEvent('BRAKE') 등.
+  import { Player } from './player/index.js'
+  import { PERSONAS, createReactor } from './mapping.js'
+
+  const status = document.querySelector('#status')
+  const emit = (event, value) => {
+    const message = String(value)
+    status.textContent = `${event}: ${message}`
+    console.log(`${event} ${message}`)
+    try { PleosProbe.emit(event, message) } catch (_) { /* 브라우저에서 열 때는 브리지가 없다 */ }
+  }
+  const q = new URLSearchParams(location.search)
+  const who = PERSONAS[q.get('persona')] ? q.get('persona') : 'seori'
+  const model = q.get('model') || PERSONAS[who].model
+  if (q.get('t') === '1') {
+    document.documentElement.style.background = 'transparent'
+    document.body.style.background = 'transparent'
+    status.style.display = 'none'
+  }
+  let resumed = false
+  window.probeResume = () => { resumed = true }
+
+  try {
+    const canvas = document.querySelector('#stage')
+    emit('capability', `WebGL2=${!!canvas.getContext('webgl2')}; supported=${Player.isSupported()}`)
+    if (!Player.isSupported()) throw new Error('WebGL2 unavailable')
+    const player = new Player(canvas)
+    window.livlivPlayer = player
+
+    // 립싱크: 클립 소리 크기(RMS) → mouthOpen. (제품 경로는 네이티브 AudioTrack + 포락선이다. 이 페이지는 시험용 WebAudio.)
+    let speaking = false, mouth = 0, mouthMax = 0
+    player.use({ update(frame) { frame.params.mouthOpen = speaking ? mouth : 0 } })
+    const ctx = new AudioContext()
+    const analyser = ctx.createAnalyser(); analyser.fftSize = 512
+    const buf = new Float32Array(analyser.fftSize)
+    analyser.connect(ctx.destination)
+    setInterval(() => {
+      if (!speaking) return
+      analyser.getFloatTimeDomainData(buf)
+      let s = 0; for (const v of buf) s += v * v
+      mouth = Math.min(1, Math.sqrt(s / buf.length) * 7)
+      mouthMax = Math.max(mouthMax, mouth)
+    }, 33)
+    let current = null
+    const say = async (name, personaId, hooks = {}) => {
+      try {
+        await ctx.resume()
+        const res = await fetch(`./clips/${personaId}/${name}.wav`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const audio = await ctx.decodeAudioData(await res.arrayBuffer())
+        current?.stop()
+        const src = ctx.createBufferSource(); src.buffer = audio; src.connect(analyser)
+        current = src
+        src.onended = () => {
+          if (current !== src) return
+          speaking = false
+          emit('speech-end', `${personaId}/${name} mouthMax=${mouthMax.toFixed(2)}`)
+          hooks.onEnd?.()
+        }
+        mouthMax = 0; speaking = true; src.start()
+        emit('speech-start', `${personaId}/${name} ${audio.duration.toFixed(2)}s`)
+        hooks.onStart?.()
+        return true
+      } catch (error) { emit('clip-error', `${personaId}/${name}: ${error.message}`); return false }
+    }
+
+    let count = 0, minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, maxZ = 0
+    player.onFrame = (pose) => {
+      count++
+      if (resumed) { resumed = false; emit('resumed-frame', `${model} count=${count}`) }
+      const p = pose.params
+      minX = Math.min(minX, p.angleX); maxX = Math.max(maxX, p.angleX)
+      minY = Math.min(minY, p.angleY); maxY = Math.max(maxY, p.angleY)
+      maxZ = Math.max(maxZ, Math.abs(p.angleZ))
+      if (count % 60 === 0) emit('frames', `${model} count=${count} x=${minX.toFixed(1)}..${maxX.toFixed(1)} y=${minY.toFixed(1)}..${maxY.toFixed(1)}`)
+    }
+    const loaded = await player.load(`./characters/${model}/`)
+    emit('loaded', `${model} ${loaded.name || ''} persona=${who}`)
+    player.play()
+
+    const react = createReactor({ player, say, log: (m) => emit('log', m) })
+    window.probeEvent = async (ev) => {
+      minX = minY = Infinity; maxX = maxY = -Infinity; maxZ = 0
+      const result = await react(ev, who)
+      emit('react', JSON.stringify(result))
+    }
+    // 반응 한 번이 끝난 뒤의 머리 각도 범위를 보고한다(크기 비교용)
+    window.probeReport = () => emit('pose-range', `x=${minX.toFixed(1)}..${maxX.toFixed(1)} y=${minY.toFixed(1)}..${maxY.toFixed(1)} |z|max=${maxZ.toFixed(1)} expr=${JSON.stringify(player.getPose().expr)} idle=${player.idle}`)
+  } catch (error) {
+    emit('error', error?.stack || error)
+  }
+</script>
+</html>
