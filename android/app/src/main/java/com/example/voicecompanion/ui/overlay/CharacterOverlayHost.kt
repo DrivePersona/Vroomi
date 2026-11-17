@@ -100,7 +100,8 @@ internal class CharacterOverlayHost(
     fun show(pack: CharacterPack, animation: String): OverlayShowResult {
         if (!permissionGranted) return OverlayShowResult.PERMISSION_REQUIRED
         unlock() // 정차 상태·권한이 확인된 호출이다. 입력을 다시 받는다.
-        val requestedSize = sizeFor(pack.overlay)
+        val livliv = livlivFor(pack)
+        val requestedSize = if (livliv != null) livlivSize() else sizeFor(pack.overlay)
         // GLB SurfaceView와 2D View는 창 수명 모델이 다르다. 다른 표현으로 바뀌면 창을 새로 만들어
         // 이전 Filament Surface와 스프라이트 재생 콜백을 함께 정리한다.
         if (root != null && (!supports(pack) || overlaySize != requestedSize)) detach()
@@ -178,13 +179,16 @@ internal class CharacterOverlayHost(
      */
     private fun livlivFor(pack: CharacterPack): LivLivManifest? {
         val id = prefs.getString("livliv.map.${pack.id}", null) ?: return null
-        return (LivLivPacks.load(context)[id] as? PackResult.Valid)?.manifest
+        return livlivPacks.getOrPut(id) { (LivLivPacks.load(context)[id] as? PackResult.Valid)?.manifest }
     }
+
+    // 검증은 파일 해시를 다 읽어서 무겁다. 팩 id마다 한 번만 한다(없음도 기억).
+    private val livlivPacks = HashMap<String, LivLivManifest?>()
 
     private var lastLivLivAnimation: String? = null
 
     private fun createCharacterView(pack: CharacterPack): View? = when {
-        livlivFor(pack) != null -> LivLivSurfaceView(context).also { it.load(livlivFor(pack)!!) }
+        livlivFor(pack) != null -> LivLivSurfaceView(context).also { it.load(livlivFor(pack)!!, livlivScale()) }
         pack.model != null -> CharacterSurfaceView(context, transparentBackground = true)
         pack.sprite != null -> SpriteCharacterView(context)
         else -> null
@@ -568,6 +572,18 @@ internal class CharacterOverlayHost(
 
     private fun dp(value: Int) = (value * density).toInt()
 
+    /** LivLiv 캐릭터를 기준 대비 [LIVLIV_SCALE]배로 키운다. 화면(안전 영역)을 넘지 않도록 줄인다. */
+    private fun livlivScale(): Float {
+        val a = usableArea()
+        return minOf(LIVLIV_SCALE, a.height() / (LIVLIV_BODY_H_DP * density), a.width() / (LIVLIV_BODY_W_DP * density))
+    }
+
+    /** 창은 캐릭터 몸(기준 240x250dp)×배율로 자른다. */
+    private fun livlivSize(): OverlaySize {
+        val s = livlivScale()
+        return OverlaySize(dp((LIVLIV_BODY_W_DP * s).toInt()), dp((LIVLIV_BODY_H_DP * s).toInt()))
+    }
+
     private fun sizeFor(spec: CharacterOverlaySpec) = OverlaySize(
         (spec.widthDp * density).toInt(),
         (spec.heightDp * density).toInt(),
@@ -600,6 +616,9 @@ internal class CharacterOverlayHost(
         // 캐릭터가 갈 수 있는 영역의 최소 폭. 이보다 좁아지면 계기판 제외를 하지 않는다(작은 화면).
         const val MIN_AREA_WIDTH_DP = 900
         // 캐릭터 팩 SDK의 기준 틀(CharacterOverlaySpec.DEFAULT와 같은 300×400dp). 프리뷰는 이 틀에 맞춰 그린다.
+        const val LIVLIV_SCALE = 5f
+        const val LIVLIV_BODY_W_DP = 240
+        const val LIVLIV_BODY_H_DP = 250
         const val STAGE_WIDTH_DP = 300
         const val STAGE_HEIGHT_DP = 400
         const val SWITCH_FADE_MS = 220L
