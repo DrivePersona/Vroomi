@@ -4,6 +4,10 @@ import com.example.voicecompanion.characterpack.model.CharacterPack
 import com.example.voicecompanion.characterpack.model.CharacterOverlaySpec
 import com.example.voicecompanion.characterpack.ui.CharacterSurfaceView
 import com.example.voicecompanion.characterpack.ui.SpriteCharacterView
+import io.drivepersona.livlivpack.LivLivManifest
+import io.drivepersona.livlivpack.LivLivPacks
+import io.drivepersona.livlivpack.LivLivSurfaceView
+import io.drivepersona.livlivpack.PackResult
 
 
 import android.animation.Animator
@@ -148,7 +152,7 @@ internal class CharacterOverlayHost(
         if (previewPackId == pack.id) return
         previewPackId = pack.id
         previewView?.let(frame::removeView)
-        previewView = pack.previewPng?.let { png ->
+        previewView = pack.previewPng?.takeIf { characterView !is LivLivSurfaceView }?.let { png ->
             BitmapFactory.decodeByteArray(png, 0, png.size)?.let { bitmap ->
                 val stageWidth = dp(STAGE_WIDTH_DP)
                 val stageHeight = dp(STAGE_HEIGHT_DP)
@@ -168,13 +172,26 @@ internal class CharacterOverlayHost(
         }
     }
 
+    /**
+     * 내부 빌드 전용 opt-in: prefs `livliv.map.<characterId>`가 가리키는 LivLiv 팩이 검증을 통과하면 GLB 대신 그것으로 그린다.
+     * 팩이 없는 빌드(review)나 검증 실패면 null이라 기존 경로 그대로다. ponytail: 로스터·캐릭터 선택 화면 연동은 아직 없다.
+     */
+    private fun livlivFor(pack: CharacterPack): LivLivManifest? {
+        val id = prefs.getString("livliv.map.${pack.id}", null) ?: return null
+        return (LivLivPacks.load(context)[id] as? PackResult.Valid)?.manifest
+    }
+
+    private var lastLivLivAnimation: String? = null
+
     private fun createCharacterView(pack: CharacterPack): View? = when {
+        livlivFor(pack) != null -> LivLivSurfaceView(context).also { it.load(livlivFor(pack)!!) }
         pack.model != null -> CharacterSurfaceView(context, transparentBackground = true)
         pack.sprite != null -> SpriteCharacterView(context)
         else -> null
     }
 
     private fun supports(pack: CharacterPack): Boolean = when (characterView) {
+        is LivLivSurfaceView -> livlivFor(pack) != null
         is CharacterSurfaceView -> pack.model != null
         is SpriteCharacterView -> pack.sprite != null
         else -> false
@@ -182,6 +199,10 @@ internal class CharacterOverlayHost(
 
     private fun present(pack: CharacterPack, animation: String) {
         when (val view = characterView) {
+            is LivLivSurfaceView -> if (animation != lastLivLivAnimation) {
+                lastLivLivAnimation = animation
+                view.perform(animation) // idle 등 manifest에 없는 이름은 false라 아무 일도 안 한다
+            }
             is CharacterSurfaceView -> view.present(pack, animation)
             is SpriteCharacterView -> view.present(pack, animation)
         }
@@ -198,6 +219,7 @@ internal class CharacterOverlayHost(
         dismissHint()
         removeControlsWindow()
         if (!attached) return
+        (characterView as? LivLivSurfaceView)?.let { lastLivLivAnimation = null; it.release() }
         try {
             root?.let(windowManager::removeViewImmediate)
         } catch (_: IllegalArgumentException) {
