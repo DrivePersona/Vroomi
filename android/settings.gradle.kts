@@ -27,7 +27,7 @@ dependencyResolutionManagement {
 
         // Private DrivePersona packages. Credentials are never committed: use
         // gpr.user/gpr.key Gradle properties or GITHUB_ACTOR/GITHUB_TOKEN in CI.
-        listOf("voice-pack-sdk", "character-pack-sdk").forEach { repository ->
+        listOf("voice-pack-sdk", "character-pack-sdk", "livliv-pack-sdk").forEach { repository ->
             maven("https://maven.pkg.github.com/DrivePersona/$repository") {
                 if (!githubPackagesUser.isNullOrBlank() && !githubPackagesToken.isNullOrBlank()) {
                     credentials {

@@ -44,6 +44,13 @@ import com.example.voicecompanion.ui.theme.TdsTheme
 
 // 문구는 harness/avatar-overlay-mockup-2026-11-12.html 기준이다. 사용자 확정 전이라 바뀔 수 있다.
 
+/** LivLiv 캐릭터 크기 단계(배율). */
+internal object OverlaySizeLevel {
+    const val MIN = 1
+    const val MAX = 5
+    const val DEFAULT = 3
+}
+
 /** Compose가 읽는 컨트롤 창 상태. 값은 호스트만 바꾼다. 좌표는 컨트롤 창 왼쪽 위가 원점인 px이다. */
 internal class OverlayControlsUi {
     var surface: OverlaySurface by mutableStateOf(OverlaySurface.Closed)
@@ -52,6 +59,9 @@ internal class OverlayControlsUi {
 
     /** 설정 시트에서 '정차 중 캐릭터 표시'를 끄기 전 확인 중인지. */
     var confirmHide: Boolean by mutableStateOf(false)
+
+    /** 캐릭터 크기 단계(1~5). null이면 이 캐릭터는 크기를 바꿀 수 없다(LivLiv 캐릭터만). */
+    var sizeLevel: Int? by mutableStateOf(null)
 }
 
 internal class OverlayControlsActions(
@@ -59,6 +69,7 @@ internal class OverlayControlsActions(
     val close: () -> Unit,
     val equip: (String) -> Unit,
     val resetPosition: () -> Unit,
+    val setSizeLevel: (Int) -> Unit,
     /** 정차 중 캐릭터 표시를 켜고 끈다. 끄면 이 창이 떼어지므로 호스트가 클릭 처리 밖으로 미룬다. */
     val setParkedAvatarVisible: (Boolean) -> Unit,
 )
@@ -193,7 +204,7 @@ private fun SheetFrame(
                     OverlaySheet.CHARACTERS -> CharacterSheet(state, actions.equip)
                     OverlaySheet.COLLECTION -> CollectionSheet(state)
                     OverlaySheet.DIALOGUE -> DialogueSheet(state, port::previewDialogue)
-                    OverlaySheet.SETTINGS -> SettingsSheet(state, port, actions)
+                    OverlaySheet.SETTINGS -> SettingsSheet(state, port, actions, ui.sizeLevel)
                 }
             }
             if (kind == OverlaySheet.COLLECTION) {
@@ -269,7 +280,20 @@ private fun DialogueSheet(state: OverlayUiState, onPreview: (String, Int) -> Uni
 }
 
 @Composable
-private fun SettingsSheet(state: OverlayUiState, port: OverlayPort, actions: OverlayControlsActions) {
+private fun SettingsSheet(state: OverlayUiState, port: OverlayPort, actions: OverlayControlsActions, sizeLevel: Int?) {
+    if (sizeLevel != null) {
+        TdsListRow(
+            title = "캐릭터 크기",
+            description = "${sizeLevel}배 · 화면보다 커지면 화면에 맞춰 줄어요.",
+            right = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TdsButton("작게", onClick = { actions.setSizeLevel(sizeLevel - 1) }, enabled = sizeLevel > OverlaySizeLevel.MIN)
+                    TdsButton("크게", onClick = { actions.setSizeLevel(sizeLevel + 1) }, enabled = sizeLevel < OverlaySizeLevel.MAX)
+                }
+            },
+        )
+        TdsRowDivider()
+    }
     TdsListRow(
         title = "세션 시작 인사",
         description = "정차 중 캐릭터가 처음 나타날 때 한 번 인사해요.",

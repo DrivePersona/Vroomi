@@ -50,13 +50,17 @@ android {
 dependencies {
     val voicePackVersion = providers.gradleProperty("drivepersona.voicepack.version").get()
     val characterPackVersion = providers.gradleProperty("drivepersona.characterpack.version").get()
+    val livlivPackVersion = providers.gradleProperty("drivepersona.livlivpack.version").get()
 
     implementation("io.drivepersona.packs:voicepack-runtime:$voicePackVersion")
     implementation("io.drivepersona.packs:characterpack-runtime:$characterPackVersion")
+    implementation("io.drivepersona.packs:livlivpack-runtime:$livlivPackVersion")
     // Approved content belongs only in team builds. The public review flavor uses
     // the built-in TTS path and contains no licensed voice or character assets.
     add("internalImplementation", "io.drivepersona.packs:voicepack-content:$voicePackVersion")
     add("internalImplementation", "io.drivepersona.packs:characterpack-content:$characterPackVersion")
+    // 권리 확정 전(internalOnly) LivLiv 팩은 팀 빌드에만 넣는다.
+    add("internalImplementation", "io.drivepersona.packs:livlivpack-content:$livlivPackVersion")
     implementation("ai.pleos.playground:Vehicle:2.3.2")
     implementation("ai.pleos.playground:TextToSpeech:3.3.1")
     implementation("androidx.activity:activity-compose:1.9.3")
