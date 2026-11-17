@@ -72,6 +72,7 @@ internal class CharacterOverlayHost(
         close = ::closeControls,
         equip = ::equip,
         resetPosition = ::resetPosition,
+        setSizeLevel = ::setSizeLevel,
         // '그래도 끄기'를 누르면 Runtime이 lock()으로 이 창을 동기로 떼는데, 그러면 자기 클릭을 처리하는 도중에 창이 사라진다.
         // closeControls와 같은 이유로 클릭 처리가 끝난 다음 루프로 미룬다. 주행 잠금(lock)은 이 길을 거치지 않으니 그대로 즉시다.
         setParkedAvatarVisible = { enabled -> main.post { port.setParkedAvatarVisible(enabled) } },
@@ -398,6 +399,7 @@ internal class CharacterOverlayHost(
     }
 
     private fun openSheet(kind: OverlaySheet) {
+        controlsUi.sizeLevel = if (characterView is LivLivSurfaceView) sizeLevel() else null
         if (!controls.openSheet(kind)) return
         Log.d(TAG, "오버레이 시트 열림: $kind")
         controlsUi.confirmHide = false
@@ -575,7 +577,31 @@ internal class CharacterOverlayHost(
     /** LivLiv 캐릭터를 기준 대비 [LIVLIV_SCALE]배로 키운다. 화면(안전 영역)을 넘지 않도록 줄인다. */
     private fun livlivScale(): Float {
         val a = usableArea()
-        return minOf(LIVLIV_SCALE, a.height() / (LIVLIV_BODY_H_DP * density), a.width() / (LIVLIV_BODY_W_DP * density))
+        return minOf(sizeLevel().toFloat(), a.height() / (LIVLIV_BODY_H_DP * density), a.width() / (LIVLIV_BODY_W_DP * density))
+    }
+
+    private fun sizeLevel() = prefs.getInt(PREF_LIVLIV_LEVEL, OverlaySizeLevel.DEFAULT).coerceIn(OverlaySizeLevel.MIN, OverlaySizeLevel.MAX)
+
+    /** 설정 시트의 크기 조절. 창을 다시 만들지 않고 창·캔버스 크기만 바꾸며, 캐릭터 가운데를 유지한 채 영역 안으로 맞춘다. */
+    private fun setSizeLevel(level: Int) {
+        val view = characterView as? LivLivSurfaceView ?: return
+        val old = overlaySize ?: return
+        prefs.edit().putInt(PREF_LIVLIV_LEVEL, level.coerceIn(OverlaySizeLevel.MIN, OverlaySizeLevel.MAX)).apply()
+        val size = livlivSize()
+        val area = allowedArea()
+        val cx = params.x + old.width / 2
+        val cy = params.y + old.height / 2
+        params.width = size.width
+        params.height = size.height
+        params.x = (cx - size.width / 2).coerceIn(area.left, maxOf(area.left, area.right - size.width))
+        params.y = (cy - size.height / 2).coerceIn(area.top, maxOf(area.top, area.bottom - size.height))
+        overlaySize = size
+        view.layoutParams = FrameLayout.LayoutParams(size.width, size.height)
+        view.setScale(livlivScale())
+        savePosition()
+        applyPosition()
+        controlsUi.sizeLevel = sizeLevel()
+        relayoutControls()
     }
 
     /** 창은 캐릭터 몸(기준 240x250dp)×배율로 자른다. */
@@ -616,7 +642,7 @@ internal class CharacterOverlayHost(
         // 캐릭터가 갈 수 있는 영역의 최소 폭. 이보다 좁아지면 계기판 제외를 하지 않는다(작은 화면).
         const val MIN_AREA_WIDTH_DP = 900
         // 캐릭터 팩 SDK의 기준 틀(CharacterOverlaySpec.DEFAULT와 같은 300×400dp). 프리뷰는 이 틀에 맞춰 그린다.
-        const val LIVLIV_SCALE = 5f
+        const val PREF_LIVLIV_LEVEL = "characterpack.vr.livlivLevel"
         const val LIVLIV_BODY_W_DP = 240
         const val LIVLIV_BODY_H_DP = 250
         const val STAGE_WIDTH_DP = 300
@@ -634,7 +660,7 @@ internal class CharacterOverlayHost(
         const val SHEET_WIDTH_DP = 600
         const val SHEET_HEIGHT_DP = 720
         const val SHEET_COLLECTION_HEIGHT_DP = 840
-        const val SHEET_SETTINGS_HEIGHT_DP = 460
+        const val SHEET_SETTINGS_HEIGHT_DP = 540
         const val SHEET_GAP_DP = 24
     }
 }
