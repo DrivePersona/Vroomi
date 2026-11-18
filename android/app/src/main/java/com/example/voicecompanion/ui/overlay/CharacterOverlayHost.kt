@@ -643,6 +643,7 @@ internal class CharacterOverlayHost(
         val DEFAULT_LIVLIV_PACKS = mapOf(
             "ai.meshy.fox" to "fox-miko",
             "ai.meshy.vtuber" to "vtuber-broadcast-host",
+            "ai.seori" to "seori-final-rich",
         )
         const val TAG = "VoiceCompanion"
         const val PREF_X = "characterpack.vr.x"
@@ -656,7 +657,7 @@ internal class CharacterOverlayHost(
         // 캐릭터 팩 SDK의 기준 틀(CharacterOverlaySpec.DEFAULT와 같은 300×400dp). 프리뷰는 이 틀에 맞춰 그린다.
         const val PREF_LIVLIV_LEVEL = "characterpack.vr.livlivLevel"
         const val LIVLIV_BODY_W_DP = 240
-        const val LIVLIV_BODY_H_DP = 250
+        const val LIVLIV_BODY_H_DP = 290
         const val STAGE_WIDTH_DP = 300
         const val STAGE_HEIGHT_DP = 400
         const val SWITCH_FADE_MS = 220L
