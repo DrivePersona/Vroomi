@@ -13,7 +13,7 @@ update: rewrite
 
 | # | 일 | 담당 저장소 | 비고 |
 | --- | --- | --- | --- |
-| 1 | 33개 캐릭터 디자인·ID·권리 승인, release 등급 GLB 검수 | character-pack-sdk | 32/33이 상업 이용 미승인 |
+| 1 | 33개 캐릭터 디자인·ID·권리 승인, release 등급 검수. **GLB 방식은 폐기하고 LivLiv 팩 기준으로 다시 정의한다**([결정 0002](../decisions/0002-livliv-replaces-glb.md), [LIVLIV_OVERLAY](../architecture/LIVLIV_OVERLAY.md)) | livliv-pack-sdk (character-pack-sdk는 대체 예정) | 32/33이 상업 이용 미승인, LivLiv 원화는 여우 미코 하나 |
 | 2 | 33 × 13 = 429 음성 WAV 제작·청취 승인 (2026-11-14 기준 102슬롯 비어 있음) | voice-pack-sdk (이슈 #5) | 파일 존재 ≠ 승인 |
 | 3 | 캐릭터·음성 이용 동의와 상업 권리 증빙 | 양쪽 | 증거 없이 `commercialUse`를 바꾸지 않는다 |
 | 4 | release roster 33개 채움, 모든 게이트 통과 빌드 | 앱 (이슈 #3) | roster는 명시적 허용 목록 |
@@ -41,7 +41,7 @@ update: rewrite
 | D1 | 상업 배포 전제 여부 | 미정. 모션 생성 모델 도입 가능성이 이에 달려 있다 |
 | D2 | 첫 실제 샘플 음원의 음성 소스(본인 녹음·성우 계약·허용 라이선스 합성) | 미정 |
 | D3 | 가챠(획득) 정책: 결제·확률·재화·중복·보장 | 미정, 결제 UI 없음 ([#39](https://github.com/DrivePersona/Vroomi/issues/39)) |
-| D4 | 기본 5개 / 가챠 풀 11개 명단 | 미정. GLB 외형·가독성 사람 검토 후 |
+| D4 | 기본 5개 / 가챠 풀 11개 명단 | 미정. 외형·가독성 사람 검토 후(2026-11-18부터 LivLiv 원화 기준) |
 | D5 | 기어 출발/도착 대사를 쓸지 | 미정 (정차↔주행 전환 이벤트) |
 | D6 | 비상등을 중립 음성으로 둘지 캐릭터로 할지 | 미정 |
 | D7 | 주행 중 화면: `distractionOptimized`를 선언해 단순 화면을 보일지 | 현재는 선언 안 함 → Pleos가 앱 화면을 차단, 음성만 동작 |

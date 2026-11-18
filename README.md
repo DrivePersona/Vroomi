@@ -148,13 +148,18 @@ Vroomi (by DrivePersona) is an in-car voice companion for Pleos. It converts veh
 
 This repository is the public review surface for the application: vehicle reaction rules, UI/UX, simulator, and integration contracts are visible here. Approved voice and character assets are intentionally isolated in private SDK repositories.
 
+### Direction: LivLiv replaces GLB (2026-11-18)
+
+Characters are moving from 3D GLB packs to **LivLiv** 2.5D characters drawn in an Android WebView. The GLB approach is retired; the code is removed step by step. See [decision 0002](docs/decisions/0002-livliv-replaces-glb.md) and the [LivLiv overlay](docs/architecture/LIVLIV_OVERLAY.md) for the structure, current state, and what is still open.
+
 ## Repository map
 
 | Repository | Visibility | Purpose |
 | --- | --- | --- |
 | `DrivePersona/Vroomi` | Public | This app, web simulator, design documents, and pack integration contracts |
 | `DrivePersona/voice-pack-sdk` | Private | Voice-pack runtime AAR and approved audio packs |
-| `DrivePersona/character-pack-sdk` | Private | Character-pack runtime AAR and approved character packs |
+| `DrivePersona/character-pack-sdk` | Private | GLB character-pack runtime AAR and packs (being replaced by LivLiv) |
+| `DrivePersona/livliv-pack-sdk` | Private | LivLiv (2.5D) pack validation and WebView renderer AAR, and pack data |
 
 ## Building from source (team only)
 

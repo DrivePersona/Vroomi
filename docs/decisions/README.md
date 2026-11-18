@@ -5,7 +5,7 @@ update: append
 
 # 결정 기록
 
-2026-11-13부터 새 결정은 한 건당 한 파일로 더한다: [템플릿](TEMPLATE.md) · [0001 문서 구조](0001-top-down-docs-structure.md). 아래 표는 그 이전 결정의 이력이다(지우지 않는다).
+2026-11-13부터 새 결정은 한 건당 한 파일로 더한다: [템플릿](TEMPLATE.md) · [0001 문서 구조](0001-top-down-docs-structure.md) · [0002 GLB 폐기·LivLiv 대체](0002-livliv-replaces-glb.md). 아래 표는 그 이전 결정의 이력이다(지우지 않는다).
 
 추가형 문서다. 결정을 바꾸면 기존 줄을 지우지 않고 아래에 새 줄을 더하고 이전 결정을 "대체됨"으로 표시한다. 열려 있는 결정은 [ROADMAP](../overview/ROADMAP.md) 3절.
 
