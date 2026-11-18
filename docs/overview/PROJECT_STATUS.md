@@ -17,7 +17,8 @@ update: rewrite
 | --- | --- | --- |
 | `Vroomi` | Public | 앱, 웹 시뮬레이터, 설계·검증 문서, 팩 연동 계약 |
 | `voice-pack-sdk` | Private | 클립 재생 SDK, 캐릭터별 음성 팩 제작물, 음성 권리 메타데이터 |
-| `character-pack-sdk` | Private | 캐릭터 GLB 검증·표시 SDK, 캐릭터 에셋, 애니메이션 |
+| `character-pack-sdk` | Private | 캐릭터 GLB 검증·표시 SDK, 캐릭터 에셋, 애니메이션. **폐기·대체 예정**([결정 0002](../decisions/0002-livliv-replaces-glb.md)) |
+| `livliv-pack-sdk` | Private | LivLiv(2.5D) 팩 검증·WebView 표시 SDK와 팩 데이터. 캐릭터 표시의 새 기준 |
 
 앱은 두 SDK를 비공개 패키지(AAR)로 받는다. 빌드 변형은 `reviewDebug`(상업 에셋 없음, 공개 시연용)와 `internalRelease`(팀 전용, 비공개 AAR 포함)다.
 
@@ -34,6 +35,7 @@ update: rewrite
 | 신호 확대 | 읽기 구독 확대, 외부등·기어·크루즈·조향·주행거리 대사(PR #42·#43) | 2026-11-10~11 |
 | overlay-first | 플로팅 메뉴·시트(PR #50), Activity 없이 부팅 시 시작하는 오버레이 런타임(PR #53), 메뉴·시트 재작업과 오버레이 입력 안전·계기판 영역 제외(PR #54·#55) | 2026-11-13~14 |
 | 신호 점검·음성 확대 | Virtual Console 63개 기능 전수 점검(PR #56·#57), 여우 신령·중2병 마왕·쿨데레 차량 OS의 13슬롯 완성(`voice-pack-sdk` 0.7.0·0.8.0, PR #58~#63) | 2026-11-14 |
+| LivLiv 전환 | 캐릭터 표시를 GLB에서 LivLiv로 대체하기로 결정(0002). 오버레이에 LivLiv 렌더링·크기 조절 연결(PR #70, 내부 opt-in), 기본 위치 고정 | 2026-11-16~18 |
 | 에너지 신호 | EV 배터리·충전구 신호가 반응하지 않던 문제 수정(PR #64) | 2026-11-15 |
 
 자세한 날짜순 기록은 [WORK_LOG](../log/WORK_LOG.md).

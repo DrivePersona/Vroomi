@@ -5,6 +5,8 @@ update: rewrite
 
 # 캐릭터 연기와 애니메이션: 방법과 교훈
 
+> **2026-11-18: GLB 캐릭터 방식은 폐기됐다**([결정 0002](../decisions/0002-livliv-replaces-glb.md)). 이 문서의 GLB 클립 규격·FK 제작 방법은 이전 시험의 기록이고, 새 기준은 LivLiv다([LIVLIV_OVERLAY](../architecture/LIVLIV_OVERLAY.md)). 연기 원칙(1절의 비트 구조, 신호 분류)은 계속 유효하다.
+
 **기준일:** 2026-11-12 · 첫 시험 캐릭터(여우 신령)에서 얻은 결과. 캐릭터 에셋과 클립 GLB는 비공개 `character-pack-sdk`에 있고, 이 문서는 **방법·측정·교훈·구조 설계**만 담는다.
 
 ## 1. 목표
