@@ -374,9 +374,13 @@ internal class CharacterOverlayHost(
 
     private fun placeFromPrefs(size: OverlaySize) {
         val area = allowedArea()
-        params.x = prefs.getInt(PREF_X, (area.left + area.right - size.width) / 2)
+        // 저장된 위치가 없으면 기준 화면(Pleos 2560x1440)에서 정한 자리: 캐릭터 몸 중심이 화면 가로 47.8%·세로 44.3%.
+        val u = usableArea()
+        val cx = u.left + (u.width() * DEFAULT_CENTER_X).toInt()
+        val cy = u.top + (u.height() * DEFAULT_CENTER_Y).toInt()
+        params.x = prefs.getInt(PREF_X, cx - size.width / 2)
             .coerceIn(area.left, maxOf(area.left, area.right - size.width))
-        params.y = prefs.getInt(PREF_Y, (area.top + area.bottom - size.height) / 2)
+        params.y = prefs.getInt(PREF_Y, cy - size.height / 2)
             .coerceIn(area.top, maxOf(area.top, area.bottom - size.height))
     }
 
@@ -637,6 +641,8 @@ internal class CharacterOverlayHost(
         const val TAG = "VoiceCompanion"
         const val PREF_X = "characterpack.vr.x"
         const val PREF_Y = "characterpack.vr.y"
+        const val DEFAULT_CENTER_X = 0.478f
+        const val DEFAULT_CENTER_Y = 0.443f
         const val PREF_MENU_HINT_COUNT = "overlay.menuHint.count"
         const val PREF_MENU_OPENED = "overlay.menu.opened"
         // 캐릭터가 갈 수 있는 영역의 최소 폭. 이보다 좁아지면 계기판 제외를 하지 않는다(작은 화면).
