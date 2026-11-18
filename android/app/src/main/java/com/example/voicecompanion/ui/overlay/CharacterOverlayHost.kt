@@ -179,7 +179,8 @@ internal class CharacterOverlayHost(
      * 팩이 없는 빌드(review)나 검증 실패면 null이라 기존 경로 그대로다. ponytail: 로스터·캐릭터 선택 화면 연동은 아직 없다.
      */
     private fun livlivFor(pack: CharacterPack): LivLivManifest? {
-        val id = prefs.getString("livliv.map.${pack.id}", null) ?: return null
+        // prefs가 우선(빈 문자열이면 LivLiv를 끄고 GLB로). 없으면 아래 기본 연결을 쓴다.
+        val id = (prefs.getString("livliv.map.${pack.id}", null) ?: DEFAULT_LIVLIV_PACKS[pack.id]).takeUnless { it.isNullOrEmpty() } ?: return null
         return livlivPacks.getOrPut(id) { (LivLivPacks.load(context)[id] as? PackResult.Valid)?.manifest }
     }
 
@@ -638,6 +639,11 @@ internal class CharacterOverlayHost(
     private data class OverlaySize(val width: Int, val height: Int, val offsetX: Int = 0, val offsetY: Int = 0)
 
     private companion object {
+        /** 캐릭터 id → LivLiv 팩 id. LivLiv 팩이 없는 빌드(review)에서는 검증이 실패해 GLB 경로 그대로다. */
+        val DEFAULT_LIVLIV_PACKS = mapOf(
+            "ai.meshy.fox" to "fox-miko",
+            "ai.meshy.vtuber" to "vtuber-broadcast-host",
+        )
         const val TAG = "VoiceCompanion"
         const val PREF_X = "characterpack.vr.x"
         const val PREF_Y = "characterpack.vr.y"
