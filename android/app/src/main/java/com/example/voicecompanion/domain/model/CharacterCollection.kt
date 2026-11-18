@@ -38,18 +38,54 @@ class CharacterCollection private constructor(
         private const val EMPTY_NAME = "미정"
 
         /** [roster]는 걸러내기 전의 출시 로스터 순서다. 쓸 수 없는 칸은 null이고, 그 칸은 비어 있는 채로 등급 위치를 지킨다. */
-        fun of(roster: List<CharacterRef?>, owned: Set<String>, equippedId: String?): CharacterCollection {
-            fun slot(ref: CharacterRef?, tier: SlotTier) = CollectionSlot(
+        fun of(
+            roster: List<CharacterRef?>,
+            owned: Set<String>,
+            equippedId: String?,
+            pendingNames: List<String?> = emptyList(),
+        ): CharacterCollection {
+            fun slot(index: Int, tier: SlotTier): CollectionSlot {
+                val ref = roster.getOrNull(index)
+                return CollectionSlot(
                 characterId = ref?.id,
-                name = ref?.name ?: EMPTY_NAME,
+                name = ref?.name ?: pendingNames.getOrNull(index) ?: EMPTY_NAME,
                 tier = tier,
                 owned = ref != null && (tier == SlotTier.BASIC || ref.id in owned),
                 equipped = ref != null && ref.id == equippedId,
-            )
+                )
+            }
             return CharacterCollection(
-                basic = List(BASIC_SLOTS) { slot(roster.getOrNull(it), SlotTier.BASIC) },
-                pool = List(POOL_SLOTS) { slot(roster.getOrNull(BASIC_SLOTS + it), SlotTier.POOL) },
+                basic = List(BASIC_SLOTS) { slot(it, SlotTier.BASIC) },
+                pool = List(POOL_SLOTS) { slot(BASIC_SLOTS + it, SlotTier.POOL) },
             )
         }
     }
+}
+
+/**
+ * 내부 미리보기 전용 기본 5칸 지정(2026-11-18 결정): 여우 무녀를 남기고 새로 만든 캐릭터로 바꾼다.
+ * 팩이 아직 없는 캐릭터(서리·곰지·핀)는 칸을 비워 둔 채 이름만 보여 준다 — 팩이 생기면 같은 id로 자동 연결된다.
+ * 출시 로스터(release-roster.json)와는 무관하고, 은퇴한 캐릭터는 기본·후보 어느 칸에도 나오지 않는다.
+ */
+object InternalPreviewRoster {
+    /** 기본 5칸의 (캐릭터 id, 팩이 없을 때 보일 이름). ai.meshy.vtuber는 새 방송 진행자 디자인이 들어올 자리다. */
+    val BASIC: List<Pair<String, String>> = listOf(
+        "ai.meshy.fox" to "여우 무녀",
+        "ai.meshy.vtuber" to "차 안 버튜버",
+        "ai.seori" to "서리",
+        "ai.gomji" to "곰지",
+        "ai.pin" to "핀",
+    )
+
+    val RETIRED: Set<String> = setOf(
+        "ai.meshy.chuuni", "ai.meshy.dojikko", "ai.meshy.knight", "ai.meshy.kuudere-os",
+    )
+
+    /** 지정한 기본 5칸을 앞에 두고, 은퇴한 캐릭터를 뺀 나머지 후보를 원래 순서로 잇는다. */
+    fun order(candidateIds: List<String>): List<String> {
+        val basic = BASIC.map { it.first }
+        return basic + candidateIds.filter { it !in basic && it !in RETIRED }
+    }
+
+    fun pendingNames(): List<String?> = BASIC.map { it.second }
 }
