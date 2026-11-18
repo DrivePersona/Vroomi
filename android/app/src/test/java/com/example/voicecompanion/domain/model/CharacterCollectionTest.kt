@@ -100,4 +100,26 @@ class CharacterCollectionTest {
         assertTrue(lockedButEquipped.pool.first { it.characterId == "char.9" }.equipped)
         assertFalse(lockedButEquipped.pool.first { it.characterId == "char.9" }.owned)
     }
+
+    @Test
+    fun `내부 미리보기는 지정한 기본 5칸을 앞에 두고 은퇴한 캐릭터를 뺀다`() {
+        val candidates = listOf(
+            "ai.meshy.chuuni", "ai.meshy.dojikko", "ai.meshy.fox", "ai.meshy.knight",
+            "ai.meshy.kuudere-os", "ai.meshy.magical", "ai.meshy.vtuber",
+        )
+        val order = InternalPreviewRoster.order(candidates)
+        assertEquals(listOf("ai.meshy.fox", "ai.meshy.vtuber", "ai.seori", "ai.gomji", "ai.pin"), order.take(5))
+        assertEquals(listOf("ai.meshy.magical"), order.drop(5))
+        assertTrue(InternalPreviewRoster.RETIRED.none { it in order })
+    }
+
+    @Test
+    fun `팩이 없는 기본 칸은 이름만 보이고 장착할 수 없다`() {
+        val refs = listOf(CharacterRef("ai.meshy.fox", "여우"), CharacterRef("ai.meshy.vtuber", "버튜버"), null, null, null)
+        val collection = CharacterCollection.of(refs, owned = emptySet(), equippedId = null, pendingNames = InternalPreviewRoster.pendingNames())
+        assertEquals(listOf("여우", "버튜버", "서리", "곰지", "핀"), collection.basic.map { it.name })
+        assertNull(collection.basic[2].characterId)
+        assertFalse(collection.basic[2].owned)
+        assertFalse(collection.isEquippable("ai.seori"))
+    }
 }

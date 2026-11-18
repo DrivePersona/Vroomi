@@ -36,6 +36,7 @@ import com.example.voicecompanion.ui.overlay.OverlayPort
 import com.example.voicecompanion.ui.overlay.VrOverlayPolicy
 import com.example.voicecompanion.domain.model.CharacterCollection
 import com.example.voicecompanion.domain.model.CharacterRef
+import com.example.voicecompanion.domain.model.InternalPreviewRoster
 import com.example.voicecompanion.presentation.model.OverlayUiState
 import com.example.voicecompanion.voicepack.data.AssetPackSource
 import com.example.voicecompanion.voicepack.data.PackRepository
@@ -649,12 +650,14 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         // 칸의 등급(기본/후보)은 걸러내기 전의 출시 로스터 순서로 정한다. 읽을 수 없거나 부적격인 캐릭터는 칸을 비워 둘 뿐
         // 뒤의 후보를 앞으로 당기지 않는다(당기면 보유 없이 기본이 되어 장착할 수 있다). 빈 칸은 눌러도 아무 일이 없다.
         // 내부 후보 미리보기는 출시 로스터가 아니라 후보 목록 순서를 따른다.
-        val order = if (internalCandidatePreview) candidateCharacters.map { it.id } else releaseRoster.entries.map { it.characterId }
+        val order = if (internalCandidatePreview) InternalPreviewRoster.order(candidateCharacters.map { it.id })
+        else releaseRoster.entries.map { it.characterId }
         val usable = characterPackList.filter { it.state is CharacterPackState.Ready }.associateBy { it.id }
         return CharacterCollection.of(
             roster = order.map { id -> usable[id]?.let { CharacterRef(it.id, it.name) } },
             owned = ownedCharacterIds,
             equippedId = activeCharacterPack?.id,
+            pendingNames = if (internalCandidatePreview) InternalPreviewRoster.pendingNames() else emptyList(),
         )
     }
 
