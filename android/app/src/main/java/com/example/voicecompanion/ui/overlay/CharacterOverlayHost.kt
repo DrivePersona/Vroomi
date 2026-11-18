@@ -180,7 +180,9 @@ internal class CharacterOverlayHost(
      */
     private fun livlivFor(pack: CharacterPack): LivLivManifest? {
         // prefs가 우선(빈 문자열이면 LivLiv를 끄고 GLB로). 없으면 아래 기본 연결을 쓴다.
-        val id = (prefs.getString("livliv.map.${pack.id}", null) ?: DEFAULT_LIVLIV_PACKS[pack.id]).takeUnless { it.isNullOrEmpty() } ?: return null
+        // 우선순위: prefs(빈 값=LivLiv 끔) → 캐릭터 팩 manifest의 livlivPackId → 기본 연결표.
+        val id = (prefs.getString("livliv.map.${pack.id}", null) ?: pack.info?.livlivPackId ?: DEFAULT_LIVLIV_PACKS[pack.id])
+            .takeUnless { it.isNullOrEmpty() } ?: return null
         return livlivPacks.getOrPut(id) { (LivLivPacks.load(context)[id] as? PackResult.Valid)?.manifest }
     }
 
@@ -189,15 +191,23 @@ internal class CharacterOverlayHost(
 
     private var lastLivLivAnimation: String? = null
 
+    /** 지금 창에 붙은 LivLiv 뷰가 읽은 팩 id. LivLiv끼리 캐릭터가 바뀌면 뷰를 다시 만들어야 해서 기억한다. */
+    private var livlivViewPackId: String? = null
+
     private fun createCharacterView(pack: CharacterPack): View? = when {
-        livlivFor(pack) != null -> LivLivSurfaceView(context).also { it.load(livlivFor(pack)!!, livlivScale()) }
+        livlivFor(pack) != null -> LivLivSurfaceView(context).also {
+            val livliv = livlivFor(pack)!!
+            livlivViewPackId = livliv.id
+            it.load(livliv, livlivScale())
+        }
         pack.model != null -> CharacterSurfaceView(context, transparentBackground = true)
         pack.sprite != null -> SpriteCharacterView(context)
         else -> null
     }
 
     private fun supports(pack: CharacterPack): Boolean = when (characterView) {
-        is LivLivSurfaceView -> livlivFor(pack) != null
+        // LivLiv 뷰는 한 팩을 읽은 채라서, 다른 LivLiv 캐릭터로 바뀌면 재사용하지 않는다(재사용하면 이전 캐릭터가 남는다).
+        is LivLivSurfaceView -> livlivFor(pack)?.id == livlivViewPackId
         is CharacterSurfaceView -> pack.model != null
         is SpriteCharacterView -> pack.sprite != null
         else -> false
@@ -225,7 +235,7 @@ internal class CharacterOverlayHost(
         dismissHint()
         removeControlsWindow()
         if (!attached) return
-        (characterView as? LivLivSurfaceView)?.let { lastLivLivAnimation = null; it.release() }
+        (characterView as? LivLivSurfaceView)?.let { lastLivLivAnimation = null; livlivViewPackId = null; it.release() }
         try {
             root?.let(windowManager::removeViewImmediate)
         } catch (_: IllegalArgumentException) {
@@ -643,6 +653,7 @@ internal class CharacterOverlayHost(
         val DEFAULT_LIVLIV_PACKS = mapOf(
             "ai.meshy.fox" to "fox-miko",
             "ai.meshy.vtuber" to "vtuber-broadcast-host",
+            "ai.seori" to "seori-final-rich",
         )
         const val TAG = "VoiceCompanion"
         const val PREF_X = "characterpack.vr.x"
@@ -656,7 +667,7 @@ internal class CharacterOverlayHost(
         // 캐릭터 팩 SDK의 기준 틀(CharacterOverlaySpec.DEFAULT와 같은 300×400dp). 프리뷰는 이 틀에 맞춰 그린다.
         const val PREF_LIVLIV_LEVEL = "characterpack.vr.livlivLevel"
         const val LIVLIV_BODY_W_DP = 240
-        const val LIVLIV_BODY_H_DP = 250
+        const val LIVLIV_BODY_H_DP = 290
         const val STAGE_WIDTH_DP = 300
         const val STAGE_HEIGHT_DP = 400
         const val SWITCH_FADE_MS = 220L

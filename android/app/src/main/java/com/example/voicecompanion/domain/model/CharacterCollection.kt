@@ -72,6 +72,7 @@ object InternalPreviewRoster {
     val BASIC: List<Pair<String, String>> = listOf(
         "ai.meshy.fox" to "여우 무녀",
         "ai.meshy.vtuber" to "차 안 버튜버",
+        "ai.seori" to "서리",
     )
 
     val RETIRED: Set<String> = setOf(

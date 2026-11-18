@@ -676,6 +676,15 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         val ready = linkedVoicePackId(character) == activePack.id &&
             activePack.canSpeak(TOUCH_EVENT) && activePack.variantCount(TOUCH_EVENT) > 0
         Log.d(TAG, "TOUCH ${character.id}: ${if (ready) "클립 재생" else "TOUCH 클립이 없어요"}")
+        if (!ready && character.info?.livlivPackId != null) {
+            // LivLiv가 그리는 캐릭터는 음성 클립이 없어도 몸짓만 보여 준다(소리 없이). 길이는 manifest의 durationMs다.
+            val seq = ++speakSeq
+            cancelGesture()
+            startGesture(TOUCH_EVENT, seq)
+            val hold = character.animations?.let { CharacterGestureResolver.resolve(it, TOUCH_EVENT)?.durationMs } ?: 0
+            if (hold > 0) main.postDelayed({ finishGesture(seq) }, hold.toLong())
+            return@onMain
+        }
         if (ready) {
             // 줄은 탭마다 돌아가며 말한다(1→2→3→1…). 몸짓은 같은 번호의 gestureId가 고른다.
             playClip(TOUCH_EVENT, touchVariant % activePack.variantCount(TOUCH_EVENT), "TOUCH")
