@@ -51,3 +51,12 @@ Successful package compatibility dispatches append the pinned runtime versions a
 - contentVersion: 0.3.4
 - contentPackIds: ai.meshy.chuuni, ai.meshy.dojikko, ai.meshy.fox, ai.meshy.knight, ai.meshy.kuudere-os, ai.meshy.magical, ai.meshy.mechanic, ai.meshy.onee, ai.meshy.onii, ai.meshy.tsundere, ai.meshy.vtuber, dev.mori
 - contentPackCount: 12
+
+## 2026-11-18 · voice-pack-sdk
+- voice-pack-sdk: 0.10.0
+- character-pack-sdk: 0.3.4
+- component: voice-pack-sdk
+- runtimeVersion: 0.10.0
+- contentVersion: 0.10.0
+- contentPackIds: ai.apprentice-magical-girl.voicedesign, ai.car-geek-mechanic.voicedesign, ai.chuunibyo-demon-lord.voicedesign, ai.clumsy-junior.voicedesign, ai.cooldere-vehicle-os.voicedesign, ai.duri.voicedesign, ai.epera.voicedesign, ai.fox-spirit.voicedesign, ai.gentle-older-sister.voicedesign, ai.gomji.voicedesign, ai.hajin.voicedesign, ai.hangyeol.voicedesign, ai.haru.voicedesign, ai.in-car-streamer.voicedesign, ai.nasa.voicedesign, ai.pin.voicedesign, ai.seori.voicedesign, ai.somi.voicedesign, ai.stoic-guardian-knight.voicedesign, ai.tsundere-lady.voicedesign
+- contentPackCount: 20
