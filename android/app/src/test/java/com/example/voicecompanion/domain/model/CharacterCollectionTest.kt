@@ -108,18 +108,19 @@ class CharacterCollectionTest {
             "ai.meshy.kuudere-os", "ai.meshy.magical", "ai.meshy.vtuber",
         )
         val order = InternalPreviewRoster.order(candidates)
-        assertEquals(listOf("ai.meshy.fox", "ai.meshy.vtuber", "ai.seori", "ai.gomji", "ai.pin"), order.take(5))
-        assertEquals(listOf("ai.meshy.magical"), order.drop(5))
+        assertEquals(listOf("ai.meshy.fox", "ai.meshy.vtuber", "ai.gomji"), order.take(3))
+        assertEquals(listOf("ai.meshy.magical"), order.drop(5)) // 남는 기본 2칸은 빈 칸이라 후보가 당겨지지 않는다
+        assertEquals(CharacterCollection.BASIC_SLOTS + 1, order.size)
         assertTrue(InternalPreviewRoster.RETIRED.none { it in order })
     }
 
     @Test
     fun `팩이 없는 기본 칸은 이름만 보이고 장착할 수 없다`() {
-        val refs = listOf(CharacterRef("ai.meshy.fox", "여우"), CharacterRef("ai.meshy.vtuber", "버튜버"), null, null, null)
+        val refs = listOf(CharacterRef("ai.meshy.fox", "여우"), CharacterRef("ai.meshy.vtuber", "버튜버"), null)
         val collection = CharacterCollection.of(refs, owned = emptySet(), equippedId = null, pendingNames = InternalPreviewRoster.pendingNames())
-        assertEquals(listOf("여우", "버튜버", "서리", "곰지", "핀"), collection.basic.map { it.name })
+        assertEquals(listOf("여우", "버튜버", "곰지", "미정", "미정"), collection.basic.map { it.name })
         assertNull(collection.basic[2].characterId)
         assertFalse(collection.basic[2].owned)
-        assertFalse(collection.isEquippable("ai.seori"))
+        assertFalse(collection.isEquippable("ai.gomji"))
     }
 }

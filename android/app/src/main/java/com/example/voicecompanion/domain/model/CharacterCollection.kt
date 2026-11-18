@@ -72,19 +72,19 @@ object InternalPreviewRoster {
     val BASIC: List<Pair<String, String>> = listOf(
         "ai.meshy.fox" to "여우 무녀",
         "ai.meshy.vtuber" to "차 안 버튜버",
-        "ai.seori" to "서리",
         "ai.gomji" to "곰지",
-        "ai.pin" to "핀",
     )
 
     val RETIRED: Set<String> = setOf(
         "ai.meshy.chuuni", "ai.meshy.dojikko", "ai.meshy.knight", "ai.meshy.kuudere-os",
     )
 
-    /** 지정한 기본 5칸을 앞에 두고, 은퇴한 캐릭터를 뺀 나머지 후보를 원래 순서로 잇는다. */
+    /** 지정한 기본 칸을 앞에 두고, 은퇴한 캐릭터를 뺀 나머지 후보를 원래 순서로 잇는다. */
     fun order(candidateIds: List<String>): List<String> {
         val basic = BASIC.map { it.first }
-        return basic + candidateIds.filter { it !in basic && it !in RETIRED }
+        // 지정이 5개보다 적으면 남는 기본 칸은 존재하지 않는 id로 채워 빈 칸(미정)으로 둔다. 후보가 기본으로 당겨지면 안 된다.
+        val padding = List(CharacterCollection.BASIC_SLOTS - basic.size) { "pending.basic.${it + 1}" }
+        return basic + padding + candidateIds.filter { it !in basic && it !in RETIRED }
     }
 
     fun pendingNames(): List<String?> = BASIC.map { it.second }
