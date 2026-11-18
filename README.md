@@ -18,6 +18,21 @@ Vroomi is an in-car voice companion for Pleos: it reacts to vehicle signals (bra
 - Verification level: Pleos Connect emulator only. It has not been verified in a real vehicle, and nobody has listened to the audio (verified up to playback start and finish events). The emulator draws the character as a 2D preview.
 - The app's UI text and log lines are in Korean. They are quoted as-is below, with English translations.
 
+### Demo
+
+[![Overlay demo on the Pleos Connect emulator](docs/evidence/videos/pleos-overlay-demo-2026-11-18.gif)](docs/evidence/videos/pleos-overlay-demo-2026-11-18.mp4)
+
+*Click the animation for the full 20-second recording (MP4, 25 MB). Recorded on the Pleos Connect emulator on 2026-11-18.*
+
+What the recording shows, in order:
+
+1. The character stands over the parked (gear P) navigation map, with the vehicle cluster on the left.
+2. **Long-press** the character: a floating menu opens beside it (change character, collection, hear lines, settings, close).
+3. Open **Settings**: a compact sheet with **character size** (smaller / larger), the opening greeting switch, and reset position.
+4. Change the size: the character grows and shrinks in place.
+
+This recording uses an **internal build** with the LivLiv 2.5D character overlay (opt-in, internal only). It is not the public release APK, which draws the character as a 2D preview. The artwork is a candidate whose commercial-use rights are not yet confirmed, so it is shown for review only (see [Asset policy](#asset-policy)). Emulator only: not verified in a real vehicle.
+
 ### Test environment
 
 | Item | Value |
