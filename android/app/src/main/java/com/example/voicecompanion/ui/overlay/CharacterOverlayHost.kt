@@ -8,6 +8,7 @@ import io.drivepersona.livlivpack.LivLivManifest
 import io.drivepersona.livlivpack.LivLivPacks
 import io.drivepersona.livlivpack.LivLivSurfaceView
 import io.drivepersona.livlivpack.PackResult
+import com.example.voicecompanion.voicepack.domain.LipSyncTimeline
 
 
 import android.animation.Animator
@@ -62,6 +63,17 @@ internal class CharacterOverlayHost(
     private var attached = false
 
     private val main = Handler(Looper.getMainLooper())
+    private data class ActiveSpeech(val id: Int, val timeline: LipSyncTimeline)
+    private var activeSpeech: ActiveSpeech? = null
+    private val mouthTick = object : Runnable {
+        override fun run() {
+            val speech = activeSpeech ?: return
+            val view = characterView as? LivLivSurfaceView ?: return
+            if (!attached) return
+            view.setMouthOpen(MouthTimeline.levelAt(speech.timeline.levels, speech.timeline.positionMs()))
+            main.postDelayed(this, 40L)
+        }
+    }
     // 차 안 터치는 손떨림이 커서, 탭이 끌기로 오인되지 않게 기본 slop의 2배로 둔다.
     private val gesture = OverlayGesture(ViewConfiguration.get(context).scaledTouchSlop * 2)
     private val controls = OverlayControls()
@@ -97,6 +109,21 @@ internal class CharacterOverlayHost(
 
     val permissionGranted: Boolean
         get() = Settings.canDrawOverlays(context)
+
+    /** Only a visible LivLiv character receives PCM-driven mouth motion. */
+    fun startSpeech(id: Int, timeline: LipSyncTimeline) {
+        stopSpeech()
+        if (!attached || characterView !is LivLivSurfaceView) return
+        activeSpeech = ActiveSpeech(id, timeline)
+        mouthTick.run()
+    }
+
+    fun stopSpeech(id: Int? = null) {
+        if (id != null && activeSpeech?.id != id) return
+        activeSpeech = null
+        main.removeCallbacks(mouthTick)
+        (characterView as? LivLivSurfaceView)?.setMouthOpen(0f)
+    }
 
     fun show(pack: CharacterPack, animation: String): OverlayShowResult {
         if (!permissionGranted) return OverlayShowResult.PERMISSION_REQUIRED
@@ -232,6 +259,7 @@ internal class CharacterOverlayHost(
 
     /** 캐릭터 창만 정리한다. 다음 [show]에서 새로 만든다. */
     private fun detach() {
+        stopSpeech()
         dismissHint()
         removeControlsWindow()
         if (!attached) return

@@ -2,7 +2,7 @@ name: Validate and open pack compatibility PR
 
 on:
   repository_dispatch:
-    types: [voicepack-published, characterpack-published, packs-published]
+    types: [voicepack-published, characterpack-published, livlivpack-published, packs-published]
 
 permissions:
   contents: read
@@ -38,7 +38,7 @@ jobs:
 
       - name: Skip already applied release
         if: steps.plan.outputs.changed != 'true'
-        run: echo "Both requested package versions are already applied; no PR is needed." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "Requested package versions are already applied; no PR is needed." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check protected credentials
         if: steps.plan.outputs.changed == 'true'
@@ -65,6 +65,7 @@ jobs:
           BRANCH: ${{ steps.plan.outputs.branch }}
           VOICE_VERSION: ${{ steps.plan.outputs.voice_version }}
           CHARACTER_VERSION: ${{ steps.plan.outputs.character_version }}
+          LIVLIV_VERSION: ${{ steps.plan.outputs.livliv_version }}
           CHANGED_PACKAGES: ${{ steps.plan.outputs.changed_packages }}
           RELEASE_METADATA: ${{ steps.plan.outputs.metadata }}
           RELEASE_DATE: ${{ github.event.client_payload.publishedAt || github.event.head_commit.timestamp }}
@@ -84,11 +85,13 @@ jobs:
           const versions = {
             'voice-pack-sdk': process.env.VOICE_VERSION,
             'character-pack-sdk': process.env.CHARACTER_VERSION,
+            'livliv-pack-sdk': process.env.LIVLIV_VERSION,
           };
           const note = [
             `\n## ${date} · ${packages.join(' + ')}`,
             `- voice-pack-sdk: ${versions['voice-pack-sdk']}`,
             `- character-pack-sdk: ${versions['character-pack-sdk']}`,
+            `- livliv-pack-sdk: ${versions['livliv-pack-sdk']}`,
             ...Object.entries(metadata).map(([key, value]) => `- ${key}: ${value}`),
             '',
           ].join('\n');
@@ -136,6 +139,7 @@ jobs:
           BRANCH: ${{ steps.plan.outputs.branch }}
           VOICE_VERSION: ${{ steps.plan.outputs.voice_version }}
           CHARACTER_VERSION: ${{ steps.plan.outputs.character_version }}
+          LIVLIV_VERSION: ${{ steps.plan.outputs.livliv_version }}
           CHANGED_PACKAGES: ${{ steps.plan.outputs.changed_packages }}
           RELEASE_METADATA: ${{ steps.plan.outputs.metadata }}
           GH_TOKEN: ${{ secrets.DRIVEPERSONA_SYNC_TOKEN }}
@@ -156,6 +160,7 @@ jobs:
             '',
             `- voice-pack-sdk: ${process.env.VOICE_VERSION}`,
             `- character-pack-sdk: ${process.env.CHARACTER_VERSION}`,
+            `- livliv-pack-sdk: ${process.env.LIVLIV_VERSION}`,
             `- Changed packages: ${process.env.CHANGED_PACKAGES}`,
             '- Protected dependency resolution: passed',
             '- Release roster/unit validation: passed',

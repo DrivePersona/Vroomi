@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeDispatch, planVersions, readVersions, updateProperties } = require('./pack-release');
 
-const currentProperties = `drivepersona.voicepack.version=0.2.0\ndrivepersona.characterpack.version=0.1.1\n`;
+const currentProperties = `drivepersona.voicepack.version=0.2.0\ndrivepersona.characterpack.version=0.1.1\ndrivepersona.livlivpack.version=0.1.0-candidate.8\n`;
 const current = readVersions(currentProperties);
 
 test('voice-only dispatch plans only the voice package', () => {
@@ -13,6 +13,7 @@ test('voice-only dispatch plans only the voice package', () => {
   assert.deepEqual(readVersions(updateProperties(currentProperties, plan.target, plan.changed)), {
     'voice-pack-sdk': '0.3.0',
     'character-pack-sdk': '0.1.1',
+    'livliv-pack-sdk': '0.1.0-candidate.8',
   });
 });
 
@@ -23,13 +24,22 @@ test('character-only dispatch plans only the character package', () => {
   assert.equal(plan.target['voice-pack-sdk'], '0.2.0');
 });
 
-test('one dispatch can update both packages and retain release metadata', () => {
+test('LivLiv-only dispatch updates the candidate version', () => {
+  const release = normalizeDispatch('livlivpack-published', { version: '0.1.0-candidate.9' });
+  const plan = planVersions(current, release);
+  assert.deepEqual(plan.changed, ['livliv-pack-sdk']);
+  assert.equal(plan.target['voice-pack-sdk'], '0.2.0');
+  assert.equal(plan.target['character-pack-sdk'], '0.1.1');
+  assert.equal(readVersions(updateProperties(currentProperties, plan.target, plan.changed))['livliv-pack-sdk'], '0.1.0-candidate.9');
+});
+
+test('one dispatch can update all packages and retain release metadata', () => {
   const release = normalizeDispatch('packs-published', {
-    packages: { 'voice-pack-sdk': '0.3.0', 'character-pack-sdk': '0.4.0' },
+    packages: { 'voice-pack-sdk': '0.3.0', 'character-pack-sdk': '0.4.0', 'livliv-pack-sdk': '0.1.0-candidate.9' },
     contentMetadata: { matrixVersion: 'v1', characterIds: ['hero.a', 'hero.b'], notes: 'row one\nrow two', ignored: 'not copied' },
   });
   const plan = planVersions(current, release);
-  assert.deepEqual(plan.changed, ['voice-pack-sdk', 'character-pack-sdk']);
+  assert.deepEqual(plan.changed, ['voice-pack-sdk', 'character-pack-sdk', 'livliv-pack-sdk']);
   assert.deepEqual(release.metadata, { matrixVersion: 'v1', characterIds: 'hero.a, hero.b', notes: 'row one row two' });
 });
 
