@@ -47,7 +47,10 @@ android {
     useLibrary("android.car")
 }
 
+configurations.maybeCreate("internalDebugImplementation")
+
 dependencies {
+    add("internalDebugImplementation", "ai.pleos.playground:NaviHelper:3.0.5")
     val voicePackVersion = providers.gradleProperty("drivepersona.voicepack.version").get()
     val characterPackVersion = providers.gradleProperty("drivepersona.characterpack.version").get()
     val livlivPackVersion = providers.gradleProperty("drivepersona.livlivpack.version").get()
