@@ -4,6 +4,7 @@ const VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 const PROPERTY_BY_PACKAGE = {
   'voice-pack-sdk': 'drivepersona.voicepack.version',
   'character-pack-sdk': 'drivepersona.characterpack.version',
+  'livliv-pack-sdk': 'drivepersona.livlivpack.version',
 };
 
 function normalizeDispatch(action, payload = {}) {
@@ -16,13 +17,14 @@ function normalizeDispatch(action, payload = {}) {
     const legacyPackage = {
       'voicepack-published': 'voice-pack-sdk',
       'characterpack-published': 'character-pack-sdk',
+      'livlivpack-published': 'livliv-pack-sdk',
     }[action];
     if (legacyPackage) packages[legacyPackage] = payload.version;
   }
 
   const selected = Object.entries(packages);
   if (selected.length === 0) throw new Error('dispatch must include package/version or a non-empty packages object');
-  if (selected.some(([name]) => !(name in PROPERTY_BY_PACKAGE))) throw new Error('package must be voice-pack-sdk or character-pack-sdk');
+  if (selected.some(([name]) => !(name in PROPERTY_BY_PACKAGE))) throw new Error('unknown pack SDK');
   if (selected.some(([, version]) => typeof version !== 'string' || !VERSION.test(version))) {
     throw new Error('every package version must use numeric semantic version syntax');
   }
@@ -83,12 +85,13 @@ function prepareFromEnvironment() {
 
   const output = process.env.GITHUB_OUTPUT;
   if (output && process.argv[2] !== '--apply') {
-    const branch = `automation/packs-v${plan.target['voice-pack-sdk']}-c${plan.target['character-pack-sdk']}`;
+    const branch = `automation/packs-v${plan.target['voice-pack-sdk']}-c${plan.target['character-pack-sdk']}-l${plan.target['livliv-pack-sdk']}`;
     const lines = [
       `changed=${plan.isNoop ? 'false' : 'true'}`,
       `branch=${branch}`,
       `voice_version=${plan.target['voice-pack-sdk']}`,
       `character_version=${plan.target['character-pack-sdk']}`,
+      `livliv_version=${plan.target['livliv-pack-sdk']}`,
       `changed_packages=${plan.changed.join(',')}`,
       `metadata=${JSON.stringify(requested.metadata)}`,
     ];

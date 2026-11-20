@@ -59,4 +59,4 @@ update: rewrite
 2. 몸짓이 동작 5종과 표정 수준이다. 대사 줄별·캐릭터별 연기는 LivLiv 방식으로 새로 설계한다(GLB 12클립 규격은 옮겨지지 않음).
 3. 캐릭터 선택·로스터가 아직 GLB 팩 기준이다. LivLiv 팩 기준 게이트(권리·13슬롯·몸짓)로 재정의하고 기존 GLB 경로를 제거한다.
 4. 33캐릭터의 LivLiv 원화·레이어 제작과 권리 확인. 원화 권리 확인 전에는 내부 검수용이다.
-5. 립싱크(`setMouthOpen`) 연결, 팩 릴리스(`repository_dispatch` 봇 PR) 연결.
+5. PCM 립싱크와 LivLiv 팩 `repository_dispatch` 호환성 PR은 [음성·몸짓 동기화 계약](SPEECH_GESTURE_SYNC.md)을 따른다. Pleos AVD에서 현재 Vroomi APK의 입 동작 확인과 실차 검증은 별도다.
