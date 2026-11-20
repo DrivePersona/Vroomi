@@ -198,6 +198,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             prefs.edit().putString(PREF_EXIT_MEMO, exitMemo).apply()
         }
         override fun sayFarewell() = this@CompanionRuntime.sayFarewell()
+        override fun readSeatComfort() = this@CompanionRuntime.readSeatComfort()
         override fun readBattery() = readVehicleStatus("ev-state-of-charge")
         override fun readRemainingRange() = readVehicleStatus("range-remaining")
         override fun setGreetingEnabled(enabled: Boolean) = changeGreetingEnabled(enabled)
@@ -755,13 +756,29 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         }
     }
 
+    private fun readSeatComfort() = onMain {
+        if (driving || engineSpeaking || navBusy) return@onMain
+        val seats = listOf("ROW_1_LEFT" to "앞 왼쪽", "ROW_1_RIGHT" to "앞 오른쪽")
+        val functions = listOf("seat-heat" to "열선", "seat-ventilation" to "통풍")
+        val parts = seats.mapNotNull { (area, seat) ->
+            val states = functions.mapNotNull reading@{ (key, label) ->
+                val level = freshVehicleNumber("$key:$area") ?: return@reading null
+                when {
+                    level == 0.0 -> "$label 꺼짐"
+                    level > 0.0 -> "$label 켜짐"
+                    else -> null
+                }
+            }
+            if (states.isEmpty()) null else "$seat 좌석 ${states.joinToString(", ")}"
+        }
+        val text = if (parts.isEmpty()) "앞좌석 열선과 통풍 상태를 확인할 수 없습니다."
+        else parts.joinToString(". ", postfix = "입니다.")
+        playParkedTts("READ_SEAT_COMFORT", text)
+    }
+
     private fun readVehicleStatus(key: String) = onMain {
         if (driving || engineSpeaking || navBusy) return@onMain
-        val reading = vehicleData.firstOrNull { it.definition.dataKey == key && it.availability == VehicleAvailability.ACTIVE }
-        val ageMs = reading?.updatedAtEpochMs?.let { System.currentTimeMillis() - it }
-        val value = reading?.value?.toDoubleOrNull()?.takeIf {
-            ageMs != null && ageMs in 0L..120_000L && it.isFinite()
-        }
+        val value = freshVehicleNumber(key)
         val isBattery = key == "ev-state-of-charge"
         val text = if (isBattery) {
             if (value != null && value in 0.0..100.0) "배터리 잔량은 ${value.toInt()}퍼센트입니다."
@@ -771,6 +788,15 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             else "주행 가능 거리를 확인할 수 없습니다."
         }
         playParkedTts(key, text)
+    }
+
+    private fun freshVehicleNumber(key: String): Double? {
+        val reading = vehicleData.firstOrNull {
+            it.definition.dataKey == key && it.availability == VehicleAvailability.ACTIVE
+        } ?: return null
+        val updatedAt = reading.updatedAtEpochMs ?: return null
+        if (System.currentTimeMillis() - updatedAt !in 0L..120_000L) return null
+        return reading.value?.toDoubleOrNull()?.takeIf { it.isFinite() }
     }
 
     private fun playParkedTts(key: String, text: String): Boolean {
