@@ -759,20 +759,24 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private fun readSeatComfort() = onMain {
         if (driving || engineSpeaking || navBusy) return@onMain
         val seats = listOf("ROW_1_LEFT" to "앞 왼쪽", "ROW_1_RIGHT" to "앞 오른쪽")
-        val functions = listOf("seat-heat" to "열선", "seat-ventilation" to "통풍")
         val parts = seats.mapNotNull { (area, seat) ->
-            val states = functions.mapNotNull reading@{ (key, label) ->
-                val level = freshVehicleNumber("$key:$area") ?: return@reading null
-                when {
-                    level == 0.0 -> "$label 꺼짐"
-                    level > 0.0 -> "$label 켜짐"
-                    else -> null
+            val temperature = freshVehicleNumber("seat-heat:$area")
+            val ventilation = freshVehicleNumber("seat-ventilation:$area")
+            val states = buildList {
+                if (temperature != null && temperature >= 0) {
+                    add(if (temperature > 0) "열선이 켜져" else "열선이 꺼져")
+                }
+                if (temperature != null && temperature < 0) {
+                    // The combined seat temperature signal uses negative levels for ventilation.
+                    add("통풍이 켜져")
+                } else if (ventilation != null && ventilation >= 0) {
+                    add(if (ventilation > 0) "통풍이 켜져" else "통풍이 꺼져")
                 }
             }
-            if (states.isEmpty()) null else "$seat 좌석 ${states.joinToString(", ")}"
+            if (states.isEmpty()) null else "$seat 좌석 ${states.joinToString(" 있고, ")} 있습니다."
         }
         val text = if (parts.isEmpty()) "앞좌석 열선과 통풍 상태를 확인할 수 없습니다."
-        else parts.joinToString(". ", postfix = "입니다.")
+        else parts.joinToString(" ")
         playParkedTts("READ_SEAT_COMFORT", text)
     }
 
