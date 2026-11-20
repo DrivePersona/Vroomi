@@ -302,6 +302,16 @@ private fun SettingsSheet(state: OverlayUiState, port: OverlayPort, actions: Ove
         right = { TdsSwitch(state.greetingEnabled) },
     )
     TdsRowDivider()
+    TdsListRow(
+        title = "배터리 잔량",
+        right = { TdsButton("듣기", onClick = port::readBattery) },
+    )
+    TdsRowDivider()
+    TdsListRow(
+        title = "주행 가능 거리",
+        right = { TdsButton("듣기", onClick = port::readRemainingRange) },
+    )
+    TdsRowDivider()
     // '정차 중 캐릭터 표시' 끄기는 제공하지 않는다. 끄면 캐릭터가 사라져 설정을 다시 열 수 없고,
     // 되돌릴 앱 화면도 없기 때문이다(Activity 제거). 캐릭터는 정차 중 항상 표시한다.
     TdsListRow(

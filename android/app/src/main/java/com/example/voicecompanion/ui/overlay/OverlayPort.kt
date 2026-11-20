@@ -18,6 +18,9 @@ internal interface OverlayPort {
 
     fun previewDialogue(eventId: String, variantIndex: Int)
 
+    fun readBattery()
+    fun readRemainingRange()
+
     fun setGreetingEnabled(enabled: Boolean)
 
     /** 정차 중 캐릭터 표시. 끄면 오버레이 전체가 사라진다. */
