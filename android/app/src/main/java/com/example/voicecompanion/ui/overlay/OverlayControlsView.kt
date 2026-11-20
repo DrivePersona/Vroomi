@@ -18,6 +18,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -312,9 +315,11 @@ private fun SettingsSheet(state: OverlayUiState, port: OverlayPort, actions: Ove
         right = { TdsButton("듣기", onClick = port::readRemainingRange) },
     )
     TdsRowDivider()
+    ExitMemoEditor(state.exitMemo, port)
+    TdsRowDivider()
     TdsListRow(
-        title = "마무리 인사",
-        description = "주차 후 함께한 길을 마무리해요.",
+        title = "마무리 안내",
+        description = "저장한 하차 메모를 읽어요. 메모가 없으면 작별 인사를 해요.",
         right = { TdsButton("듣기", onClick = port::sayFarewell) },
     )
     TdsRowDivider()
@@ -324,4 +329,30 @@ private fun SettingsSheet(state: OverlayUiState, port: OverlayPort, actions: Ove
         title = "캐릭터 위치 초기화",
         right = { TdsButton("초기화", onClick = actions.resetPosition) },
     )
+}
+
+@Composable
+private fun ExitMemoEditor(savedMemo: String, port: OverlayPort) {
+    var draft by remember(savedMemo) { mutableStateOf(savedMemo) }
+    val focus = LocalFocusManager.current
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it.take(120) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("하차 메모") },
+            maxLines = 2,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TdsButton("저장", enabled = draft.trim() != savedMemo, onClick = {
+                port.saveExitMemo(draft)
+                focus.clearFocus()
+            })
+            TdsButton("지우기", enabled = savedMemo.isNotEmpty() || draft.isNotEmpty(), onClick = {
+                draft = ""
+                port.saveExitMemo("")
+                focus.clearFocus()
+            })
+        }
+    }
 }

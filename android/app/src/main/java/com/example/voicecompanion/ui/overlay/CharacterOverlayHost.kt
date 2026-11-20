@@ -426,6 +426,7 @@ internal class CharacterOverlayHost(
             controls.close()
             return
         }
+        controlsWindow.setFocusable(controls.surface == OverlaySurface.Sheet(OverlaySheet.SETTINGS))
         relayoutControls()
         controlsUi.surface = controls.surface
     }

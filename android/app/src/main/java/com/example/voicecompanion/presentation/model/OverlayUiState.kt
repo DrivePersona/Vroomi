@@ -9,6 +9,7 @@ data class OverlayUiState(
     val activeCharacterName: String?,
     val dialogueRows: List<VoiceDialogueRow>,
     val greetingEnabled: Boolean,
+    val exitMemo: String = "",
     val parkedAvatarVisible: Boolean,
     val notice: String?,
     /** 출시 로스터가 아니라 내부 후보 미리보기 목록이다. */

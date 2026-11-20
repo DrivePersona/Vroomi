@@ -42,6 +42,16 @@ internal class ComposeOverlayWindow(
         }
     }
 
+    fun setFocusable(focusable: Boolean) {
+        val attached = view ?: return
+        val params = attached.layoutParams as WindowManager.LayoutParams
+        val flag = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        val flags = if (focusable) params.flags and flag.inv() else params.flags or flag
+        if (params.flags == flags) return
+        params.flags = flags
+        windowManager.updateViewLayout(attached, params)
+    }
+
     fun remove() {
         val attached = view ?: return
         view = null
