@@ -315,6 +315,11 @@ private fun SettingsSheet(state: OverlayUiState, port: OverlayPort, actions: Ove
         right = { TdsButton("듣기", onClick = port::readRemainingRange) },
     )
     TdsRowDivider()
+    TdsListRow(
+        title = "앞좌석 열선·통풍",
+        right = { TdsButton("듣기", onClick = port::readSeatComfort) },
+    )
+    TdsRowDivider()
     ExitMemoEditor(state.exitMemo, port)
     TdsRowDivider()
     TdsListRow(

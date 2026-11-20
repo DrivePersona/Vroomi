@@ -22,6 +22,8 @@ internal interface OverlayPort {
 
     fun sayFarewell()
 
+    fun readSeatComfort()
+
     fun readBattery()
     fun readRemainingRange()
 
