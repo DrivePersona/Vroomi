@@ -18,6 +18,8 @@ internal interface OverlayPort {
 
     fun previewDialogue(eventId: String, variantIndex: Int)
 
+    fun saveExitMemo(text: String)
+
     fun sayFarewell()
 
     fun readBattery()

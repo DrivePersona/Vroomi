@@ -151,6 +151,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     )
     private var speakSeq = 0 // 가장 최근 말하기 요청의 번호. 늦게 온 이전 요청의 done이 새 요청의 포커스를 놓지 않게 한다
     private var farewellStarted = false
+    private var exitMemo by mutableStateOf("")
     private var previewSeq = -1 // 주행 시작 시 진행 중인 대사 미리듣기를 끊는다
     private var engineSpeechSeq = 0 // 가장 최근 엔진 반응 음성(차량 신호 반응·안전 안내)의 요청 번호
     private var engineSpeaking = false // 그 음성이 아직 끝나지 않았다. TOUCH·시작 인사는 이 동안 말하지 않는다(안전 안내가 연출에 밀리면 안 된다)
@@ -191,6 +192,11 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         override fun touchCharacter() = this@CompanionRuntime.touchCharacter()
         override fun equipCharacter(characterId: String) = this@CompanionRuntime.equipCharacter(characterId)
         override fun previewDialogue(eventId: String, variantIndex: Int) = this@CompanionRuntime.previewDialogue(eventId, variantIndex)
+        override fun saveExitMemo(text: String) = onMain {
+            if (driving) return@onMain
+            exitMemo = text.trim().take(120)
+            prefs.edit().putString(PREF_EXIT_MEMO, exitMemo).apply()
+        }
         override fun sayFarewell() = this@CompanionRuntime.sayFarewell()
         override fun readBattery() = readVehicleStatus("ev-state-of-charge")
         override fun readRemainingRange() = readVehicleStatus("range-remaining")
@@ -246,6 +252,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         vrEnabled = true
         ownedCharacterIds = prefs.getStringSet(PREF_OWNED_CHARACTERS, emptySet()).orEmpty().toSet()
         greetingEnabled = prefs.getBoolean(PREF_GREETING, true)
+        exitMemo = prefs.getString(PREF_EXIT_MEMO, "").orEmpty()
         VehicleEvent.entries.forEach { e ->
             val saved = prefs.getString("line.${e.name}", null)?.take(MAX_LINE)
             typedLines[e] = saved ?: e.defaultLine
@@ -673,6 +680,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         activeCharacterName = activeCharacterPack?.name,
         dialogueRows = dialogueRows(),
         greetingEnabled = greetingEnabled,
+        exitMemo = exitMemo,
         parkedAvatarVisible = vrEnabled,
         notice = characterPackNotice,
         internalPreview = internalCandidatePreview,
@@ -738,7 +746,9 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (driving || farewellStarted || engineSpeaking || navBusy) return@onMain
         val character = activeCharacterPack ?: return@onMain
         val hasClip = linkedVoicePackId(character) == activePack.id && activePack.variantCount(FAREWELL_EVENT) > 0
-        farewellStarted = if (hasClip) {
+        farewellStarted = if (exitMemo.isNotBlank()) {
+            playParkedTts("EXIT_MEMO", "하차 메모입니다. $exitMemo")
+        } else if (hasClip) {
             playClip(FAREWELL_EVENT, 0, "마무리 인사")
         } else {
             playParkedTts(FAREWELL_EVENT, "다음에 또 만나요.")
@@ -997,6 +1007,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         private const val PREF_CHARACTER_PACK = "characterpack.selected"
         private const val PREF_VR_ENABLED = "characterpack.vr.enabled"
         private const val PREF_OWNED_CHARACTERS = "collection.owned"
+        private const val PREF_EXIT_MEMO = "settings.exitMemo"
         private const val PREF_GREETING = "settings.greeting"
         private const val TOUCH_EVENT = "TOUCH"
         private const val TOUCH_COOLDOWN_MS = 1500L // 잦은 탭 반복을 제한한다(PRD)
