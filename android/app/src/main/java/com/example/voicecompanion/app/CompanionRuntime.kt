@@ -132,7 +132,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private val repository = PackRepository(
         source = AssetPackSource(app.assets, "voicepacks"),
         factories = mapOf(ClipPackFactory.KIND to ClipPackFactory(newOutput = audio::newPcmOutput)),
-        allowedEvents = VehicleSpeechPolicy.voicePackClipEventIds,
+        allowedEvents = VehicleSpeechPolicy.voicePackClipEventIds + setOf("CHARACTER_SELECTED", "VOICE_PREVIEW"),
         appVersion = app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode,
     )
     private val releaseRoster = runCatching {
@@ -190,6 +190,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         override fun touchCharacter() = this@CompanionRuntime.touchCharacter()
         override fun equipCharacter(characterId: String) = this@CompanionRuntime.equipCharacter(characterId)
         override fun previewDialogue(eventId: String, variantIndex: Int) = this@CompanionRuntime.previewDialogue(eventId, variantIndex)
+        override fun readBattery() = readVehicleStatus("ev-state-of-charge")
+        override fun readRemainingRange() = readVehicleStatus("range-remaining")
         override fun setGreetingEnabled(enabled: Boolean) = changeGreetingEnabled(enabled)
         override fun setParkedAvatarVisible(enabled: Boolean) = changeVrEnabled(enabled)
     }
@@ -482,7 +484,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private fun ensureDefaultCharacter() {
         if (driving || !packsLoaded || !characterPacksLoaded) return
         if (activeCharacterPack != null || prefs.getString(PREF_CHARACTER_PACK, null) != null) return
-        characterPackList.firstOrNull { it.state is CharacterPackState.Ready }?.let { selectCharacterPack(it.id) }
+        characterPackList.firstOrNull { it.state is CharacterPackState.Ready }?.let { selectCharacterPackInternal(it.id, announce = false) }
     }
 
     /** Boot/service 진입점: 설정을 전면에 두지 않고 시작하며, CarUx가 정차를 알려 줄 때까지 닫힌 쪽(주행)으로 둔다. */
@@ -493,7 +495,9 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     }
 
     /** 정차 중에만 READY 캐릭터를 고르고 저장한다. 선택한 표현은 다음 오버레이 표시부터 적용된다. */
-    override fun selectCharacterPack(id: String) = onMain {
+    override fun selectCharacterPack(id: String) = selectCharacterPackInternal(id, announce = true)
+
+    private fun selectCharacterPackInternal(id: String, announce: Boolean) = onMain {
         val pack = characterPackList.firstOrNull { it.id == id } ?: return@onMain
         if (driving || pack.state !is CharacterPackState.Ready) return@onMain
         val voicePackId = linkedVoicePackId(pack)
@@ -504,6 +508,8 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             Log.e(TAG, "캐릭터 ${pack.id} 선택 거부: voicePackId가 없거나 READY 팩이 없음")
             return@onMain
         }
+        if (activeCharacterPack?.id == id) return@onMain
+        val canAnnounce = announce && !engineSpeaking
         val previousVoicePackId = packs.selectedId
         packs.stopAll()
         val selectedVoicePackId = if (voicePackId != null) voicePackId else audio.builtinPack.id
@@ -519,6 +525,24 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         prefs.edit().putString(PREF_CHARACTER_PACK, id).apply()
         characterPackNotice = null
         refreshCharacterPacks()
+        if (canAnnounce && greetingEnabled) scheduleSelectionGreeting(id)
+    }
+
+    private fun scheduleSelectionGreeting(characterId: String) {
+        val selectionSeq = speakSeq
+        main.postDelayed({
+            if (driving || !greetingEnabled || engineSpeaking || selectionSeq != speakSeq) return@postDelayed
+            val character = activeCharacterPack ?: return@postDelayed
+            if (character.id != characterId || linkedVoicePackId(character) != activePack.id) return@postDelayed
+            val eventId = if (activePack.variantCount("CHARACTER_SELECTED") > 0) {
+                "CHARACTER_SELECTED"
+            } else {
+                GREETING_EVENT
+            }
+            if (activePack.variantCount(eventId) > 0 && playClip(eventId, 0, "캐릭터 선택 인사")) {
+                greetingChanceUsed = true
+            }
+        }, 400L)
     }
 
     /** 설정 Activity가 앞에 있을 때는 오버레이를 숨긴다. 뒤로 가면 저장된 VR 상태대로 다시 판단한다. */
@@ -599,9 +623,14 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
 
     /** One-shot playback for the exact selected-pack event and zero-based clip variant. */
     override fun previewDialogue(eventId: String, variantIndex: Int) = onMain {
+        if (engineSpeaking) return@onMain
         if (driving || linkedVoicePackId(activeCharacterPack) != activePack.id) return@onMain
         if (variantIndex !in 0 until activePack.variantCount(eventId)) return@onMain
         val isGreeting = eventId == GREETING_EVENT
+        if (isGreeting && variantIndex == 0 && activePack.variantCount("VOICE_PREVIEW") > 0) {
+            playClip("VOICE_PREVIEW", 0, "목소리 미리듣기")
+            return@onMain
+        }
         if (!isGreeting && !ReleaseRoster.REQUIRED_VOICE_EVENT_IDS.contains(eventId)) return@onMain
         val seq = ++speakSeq
         previewSeq = seq
@@ -700,6 +729,34 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             return@onMain
         }
         selectCharacterPack(characterId)
+    }
+
+    private fun readVehicleStatus(key: String) = onMain {
+        if (driving || engineSpeaking || navBusy) return@onMain
+        val reading = vehicleData.firstOrNull { it.definition.dataKey == key && it.availability == VehicleAvailability.ACTIVE }
+        val ageMs = reading?.updatedAtEpochMs?.let { System.currentTimeMillis() - it }
+        val value = reading?.value?.toDoubleOrNull()?.takeIf {
+            ageMs != null && ageMs in 0L..120_000L && it.isFinite()
+        }
+        val isBattery = key == "ev-state-of-charge"
+        val text = if (isBattery) {
+            if (value != null && value in 0.0..100.0) "배터리 잔량은 ${value.toInt()}퍼센트입니다."
+            else "배터리 잔량을 확인할 수 없습니다."
+        } else {
+            if (value != null && value >= 0) "주행 가능 거리는 약 ${(value / 1000).toInt()}킬로미터입니다."
+            else "주행 가능 거리를 확인할 수 없습니다."
+        }
+        val seq = ++speakSeq
+        previewSeq = seq
+        cancelGesture()
+        packs.stopAll()
+        if (!requestFocus()) return@onMain
+        val started = audio.builtinPack.voice.speak(
+            SpeakRequest(eventId = key, text = text, neutral = true, volume = MAX_VOLUME, pitch = 1f, rate = 1f),
+            note = { msg -> Log.d(TAG, "요청 차량 정보 $key: $msg") },
+            done = { onMain { if (seq == speakSeq) audio.abandonFocus() } },
+        )
+        if (!started) audio.abandonFocus()
     }
 
     private fun changeGreetingEnabled(enabled: Boolean) {
