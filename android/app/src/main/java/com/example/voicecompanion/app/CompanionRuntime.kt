@@ -132,7 +132,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private val repository = PackRepository(
         source = AssetPackSource(app.assets, "voicepacks"),
         factories = mapOf(ClipPackFactory.KIND to ClipPackFactory(newOutput = audio::newPcmOutput)),
-        allowedEvents = VehicleSpeechPolicy.voicePackClipEventIds + setOf("CHARACTER_SELECTED", "VOICE_PREVIEW"),
+        allowedEvents = VehicleSpeechPolicy.voicePackClipEventIds + setOf("CHARACTER_SELECTED", "VOICE_PREVIEW", FAREWELL_EVENT),
         appVersion = app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode,
     )
     private val releaseRoster = runCatching {
@@ -150,6 +150,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         appVersion = app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode,
     )
     private var speakSeq = 0 // 가장 최근 말하기 요청의 번호. 늦게 온 이전 요청의 done이 새 요청의 포커스를 놓지 않게 한다
+    private var farewellStarted = false
     private var previewSeq = -1 // 주행 시작 시 진행 중인 대사 미리듣기를 끊는다
     private var engineSpeechSeq = 0 // 가장 최근 엔진 반응 음성(차량 신호 반응·안전 안내)의 요청 번호
     private var engineSpeaking = false // 그 음성이 아직 끝나지 않았다. TOUCH·시작 인사는 이 동안 말하지 않는다(안전 안내가 연출에 밀리면 안 된다)
@@ -190,6 +191,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         override fun touchCharacter() = this@CompanionRuntime.touchCharacter()
         override fun equipCharacter(characterId: String) = this@CompanionRuntime.equipCharacter(characterId)
         override fun previewDialogue(eventId: String, variantIndex: Int) = this@CompanionRuntime.previewDialogue(eventId, variantIndex)
+        override fun sayFarewell() = this@CompanionRuntime.sayFarewell()
         override fun readBattery() = readVehicleStatus("ev-state-of-charge")
         override fun readRemainingRange() = readVehicleStatus("range-remaining")
         override fun setGreetingEnabled(enabled: Boolean) = changeGreetingEnabled(enabled)
@@ -383,6 +385,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         engine.setDriving(value)
         if (value) {
             cancelGesture()
+            farewellStarted = false
             if (previewSeq == speakSeq) stop()
         } else {
             ensureDefaultCharacter()
@@ -731,6 +734,17 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         selectCharacterPack(characterId)
     }
 
+    private fun sayFarewell() = onMain {
+        if (driving || farewellStarted || engineSpeaking || navBusy) return@onMain
+        val character = activeCharacterPack ?: return@onMain
+        val hasClip = linkedVoicePackId(character) == activePack.id && activePack.variantCount(FAREWELL_EVENT) > 0
+        farewellStarted = if (hasClip) {
+            playClip(FAREWELL_EVENT, 0, "마무리 인사")
+        } else {
+            playParkedTts(FAREWELL_EVENT, "다음에 또 만나요.")
+        }
+    }
+
     private fun readVehicleStatus(key: String) = onMain {
         if (driving || engineSpeaking || navBusy) return@onMain
         val reading = vehicleData.firstOrNull { it.definition.dataKey == key && it.availability == VehicleAvailability.ACTIVE }
@@ -746,17 +760,22 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             if (value != null && value >= 0) "주행 가능 거리는 약 ${(value / 1000).toInt()}킬로미터입니다."
             else "주행 가능 거리를 확인할 수 없습니다."
         }
+        playParkedTts(key, text)
+    }
+
+    private fun playParkedTts(key: String, text: String): Boolean {
         val seq = ++speakSeq
         previewSeq = seq
         cancelGesture()
         packs.stopAll()
-        if (!requestFocus()) return@onMain
+        if (!requestFocus()) return false
         val started = audio.builtinPack.voice.speak(
             SpeakRequest(eventId = key, text = text, neutral = true, volume = MAX_VOLUME, pitch = 1f, rate = 1f),
             note = { msg -> Log.d(TAG, "요청 차량 정보 $key: $msg") },
             done = { onMain { if (seq == speakSeq) audio.abandonFocus() } },
         )
         if (!started) audio.abandonFocus()
+        return started
     }
 
     private fun changeGreetingEnabled(enabled: Boolean) {
@@ -981,6 +1000,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         private const val PREF_GREETING = "settings.greeting"
         private const val TOUCH_EVENT = "TOUCH"
         private const val TOUCH_COOLDOWN_MS = 1500L // 잦은 탭 반복을 제한한다(PRD)
+        private const val FAREWELL_EVENT = "SESSION_FAREWELL"
         private const val TAG = "VoiceCompanion"
     }
 }
