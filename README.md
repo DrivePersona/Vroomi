@@ -24,6 +24,8 @@ Vroomi is an in-car voice companion for Pleos: it reacts to vehicle signals (bra
 
 *Click the animation for the full 20-second recording (MP4, 25 MB). Recorded on the Pleos Connect emulator on 2026-11-18.*
 
+[Character signal videos](docs/evidence/videos/character-signals/README.md) show the brake, turn-signal and touch sequences for the fox shrine maiden, VTuber and Seori.
+
 What the recording shows, in order:
 
 1. The character stands over the parked (gear P) navigation map, with the vehicle cluster on the left.
