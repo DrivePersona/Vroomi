@@ -9,7 +9,15 @@ For a selected READY character/voice pair, clip playback's `재생됨` callback 
 
 The same callback path is used for dialogue previews and vehicle-event speech. When audio finishes, is replaced, loses focus, or the vehicle enters Drive, the runtime returns the character to its idle animation. The character SDK uses the declared gesture duration to stop the GLB one-shot and hold its last pose until the runtime changes it to idle.
 
-The current voice-pack schema has no per-clip `gestureId` or `startOffsetMs`, and automatic round-robin playback does not expose its chosen variant index to the app. Therefore this implementation starts the character's event-mapped gesture at the audio-start callback (offset zero). Per-clip offsets and variant-specific gesture IDs need a voice-pack schema/API change before they can be enforced. A Pleos AVD is also required to record actual audio/Filament timing evidence.
+The voice-pack schema can declare per-clip `gestureId` and `startOffsetMs`; the selected variant callback lets the app choose that clip's gesture. The runtime starts it after the declared offset and returns to idle when audio ends. The LivLiv view executes the resolved gesture name from the character manifest.
+
+## LivLiv mouth synchronization
+
+The internal LivLiv character uses the exact PCM submitted to `AudioTrack`: the voice-pack runtime calculates one 0–255 RMS mouth level per 20 ms, including the 150 ms silent preroll. After playback starts, `SpeakRequest.onClipPlayback` provides this envelope and the track's playback position. The app samples the envelope every 40 ms and calls `LivLivSurfaceView.setMouthOpen(0..1)`. Missing playback position keeps the mouth closed. The view retains only the latest value while its WebView loads.
+
+This applies to parked character clips, dialogue previews, touch lines, and greetings. Neutral safety speech, system TTS, fallback speech, and driving do not animate the mouth. Completion, interruption, audio-focus stop, character change, and overlay removal close it. The app keeps audio playback independent of the WebView; a visual callback failure cannot prevent speech.
+
+The start/end contract and PCM envelope are covered by unit tests. Pleos AVD verification must separately confirm SDK vehicle input, selected clip playback, visible mouth motion, and recovery after interruption. The local standalone APK evidence is not a Vroomi `main` validation.
 
 ## TOUCH (사용자 탭) 슬롯
 

@@ -45,6 +45,7 @@ import com.example.voicecompanion.voicepack.domain.PackSelector
 import com.example.voicecompanion.voicepack.domain.ClipGesture
 import com.example.voicecompanion.voicepack.domain.GREETING_EVENT
 import com.example.voicecompanion.voicepack.domain.SpeakRequest
+import com.example.voicecompanion.voicepack.domain.LipSyncTimeline
 import com.example.voicecompanion.voicepack.domain.VoicePack
 import com.example.voicecompanion.characterpack.data.AssetCharacterPackSource
 import com.example.voicecompanion.characterpack.data.CharacterPackRepository
@@ -187,7 +188,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     private var greetingChanceUsed = false // 세션 첫 표시 때 한 번만 인사를 정한다. 그때 설정이 꺼져 있거나 말할 수 없어도 기회는 지나간 것이다
     private var lastTouchAt = -TOUCH_COOLDOWN_MS
     private var touchVariant = 0
-    private val overlayPort = object : OverlayPort {
+    private val overlayPort: OverlayPort = object : OverlayPort {
         override fun state() = overlayState()
         override fun touchCharacter() = this@CompanionRuntime.touchCharacter()
         override fun equipCharacter(characterId: String) = this@CompanionRuntime.equipCharacter(characterId)
@@ -204,7 +205,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         override fun setGreetingEnabled(enabled: Boolean) = changeGreetingEnabled(enabled)
         override fun setParkedAvatarVisible(enabled: Boolean) = changeVrEnabled(enabled)
     }
-    private val characterOverlay = CharacterOverlayHost(app, prefs, overlayPort)
+    private val characterOverlay: CharacterOverlayHost = CharacterOverlayHost(app, prefs, overlayPort)
 
     /**
      * 후보 GLB는 내부 빌드(디버그, 또는 internal flavor)에서만 확인한다. 공개용 review 빌드와 출시 로스터는 반드시 로스터를 따른다.
@@ -522,6 +523,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         if (activeCharacterPack?.id == id) return@onMain
         val canAnnounce = announce && !engineSpeaking
         val previousVoicePackId = packs.selectedId
+        characterOverlay.stopSpeech()
         packs.stopAll()
         val selectedVoicePackId = if (voicePackId != null) voicePackId else audio.builtinPack.id
         packs.select(selectedVoicePackId)?.let { why ->
@@ -646,6 +648,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         val seq = ++speakSeq
         previewSeq = seq
         cancelGesture()
+        characterOverlay.stopSpeech()
         packs.stopAll()
         if (!requestFocus()) return@onMain
         val text = activePack.lineFor(eventId, variantIndex) ?: ""
@@ -658,6 +661,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             pitch = preset.pitch,
             rate = preset.rate,
             variantIndex = variantIndex,
+            onClipPlayback = lipSyncFor(seq, eventId !in VehicleSpeechPolicy.neutralClipEventIds),
         )
         val started = activePack.voice.speak(
             request,
@@ -669,7 +673,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                     }
                 }
             },
-            done = { onMain { if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() } } },
+            done = { onMain { if (seq == speakSeq) { characterOverlay.stopSpeech(seq); finishGesture(seq); audio.abandonFocus() } } },
         )
         if (!started) audio.abandonFocus()
     }
@@ -850,6 +854,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         val seq = ++speakSeq
         previewSeq = seq
         cancelGesture()
+        characterOverlay.stopSpeech()
         packs.stopAll()
         if (!requestFocus()) return false
         val request = SpeakRequest(
@@ -860,6 +865,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             pitch = preset.pitch,
             rate = preset.rate,
             variantIndex = variantIndex,
+            onClipPlayback = lipSyncFor(seq, true),
         )
         val clipGesture = activePack.gestureFor(eventId, variantIndex)
         val started = activePack.voice.speak(
@@ -872,11 +878,18 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
                     }
                 }
             },
-            done = { onMain { if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() } } },
+            done = { onMain { if (seq == speakSeq) { characterOverlay.stopSpeech(seq); finishGesture(seq); audio.abandonFocus() } } },
         )
         if (!started) audio.abandonFocus()
         return started
     }
+
+    private fun lipSyncFor(seq: Int, enabled: Boolean): ((LipSyncTimeline) -> Unit)? =
+        if (!enabled) null else { timeline ->
+            onMain {
+                if (seq == speakSeq && !driving) characterOverlay.startSpeech(seq, timeline)
+            }
+        }
 
     // ---- Platform: 엔진이 바깥 세계와 만나는 곳 ----
     override fun speak(event: VehicleEvent, text: String, neutral: Boolean, volume: Float) {
@@ -894,6 +907,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
         engineSpeechSeq = seq
         engineSpeaking = true
         cancelGesture()
+        characterOverlay.stopSpeech()
         val gestureEventId = VehicleSpeechPolicy.canonicalEventId(event).takeIf {
             !driving && !neutralDelivery && output == SpeechOutput.CHARACTER_CLIP && activePack.canSpeak(it)
         }
@@ -905,6 +919,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             volume = volume,
             pitch = if (neutralDelivery) 1f else preset.pitch,
             rate = if (neutralDelivery) 1f else preset.rate,
+            onClipPlayback = lipSyncFor(seq, !neutralDelivery && output == SpeechOutput.CHARACTER_CLIP),
         )
         var usedFallback = false
         var selectedClipGesture: ClipGesture? = null
@@ -922,7 +937,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
             // 엔진 음성이 끝났다는 표시는 그와 별개다: 미리듣기가 speakSeq를 올렸어도 이 음성이 끝난 사실은 반영한다.
             done = { onMain {
                 if (seq == engineSpeechSeq) engineSpeaking = false
-                if (seq == speakSeq) { finishGesture(seq); audio.abandonFocus() }
+                if (seq == speakSeq) { characterOverlay.stopSpeech(seq); finishGesture(seq); audio.abandonFocus() }
             } },
             onFallback = { why ->
                 Log.d(TAG, "반응 음성 ${request.eventId}: 대체 재생 — $why")
@@ -946,6 +961,7 @@ class CompanionRuntime(private val app: Application) : Platform, CompanionUiRunt
     override fun stop() {
         engineSpeaking = false // 모든 음성을 끊었다. done이 오기 전에 TOUCH가 막히지 않게 한다
         cancelGesture()
+        characterOverlay.stopSpeech()
         packs.stopAll()
         audio.abandonFocus()
     }
