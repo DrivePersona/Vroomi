@@ -11,6 +11,7 @@ update: rewrite
 | --- | --- |
 | [PLEOS_AVD_VERIFICATION](PLEOS_AVD_VERIFICATION.md) | Pleos AVD UI 검증 |
 | [LIVLIV_SIGNAL_VIDEOS](LIVLIV_SIGNAL_VIDEOS.md) | LivLiv 캐릭터(여우 무녀·버튜버·서리) 신호별 동작 영상 |
+| [캐릭터별 신호 시연 MP4](videos/character-signals/README.md) | 캐릭터별 영상 파일과 입력 시점 |
 | [INTERNAL_VOICEDESIGN_AVD_VALIDATION](INTERNAL_VOICEDESIGN_AVD_VALIDATION.md) | 내부 VoiceDesign 후보의 AVD 검증 |
 | [INTERNAL_VOICEDESIGN_PREVIEW](INTERNAL_VOICEDESIGN_PREVIEW.md) | 내부 후보 미리보기 |
 | [STABILITY_REGRESSION_COVERAGE](STABILITY_REGRESSION_COVERAGE.md) | 안정성 점검 범위 |
@@ -18,4 +19,6 @@ update: rewrite
 | [VIRTUAL_CONSOLE_SIGNAL_SWEEP](VIRTUAL_CONSOLE_SIGNAL_SWEEP.md) | Virtual Console 63개 기능의 신호별 앱 반응 전수 점검(2026-11-14, AVD) |
 | [FOX_UTTERANCE_CHECK](FOX_UTTERANCE_CHECK.md) | 여우 신령(여우 무녀)로 신호별 발화 대사·TTS 재생 점검(2026-11-14, AVD) |
 | [videos](videos/pleos-overlay-demo-2026-11-18.mp4) | 오버레이 데모 녹화(2026-11-18, AVD 내부 빌드, 20초). 루트 README의 Demo가 쓴다 |
+| [PLEOS_CHARGE_STATE_PROBE](PLEOS_CHARGE_STATE_PROBE.md) | Pleos 충전 상태 구독 진단 |
+| [PLEOS_ROUTE_PROBE](PLEOS_ROUTE_PROBE.md) | Pleos 경로 탐색 콜백 진단 |
 | 캡처 | 이 폴더의 `*.png`와 `images/` |
